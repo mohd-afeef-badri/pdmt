@@ -1,0 +1,256 @@
+/*****************************************************************************
+
+         This file is a part of PDMT (Parallel Dual Meshing Tool)
+
+     -------------------------------------------------------------------
+
+     Author(s): Mohd Afeef Badri
+     Email    : mohd-afeef.badri@cea.com
+     Date     : 14/01/2022
+     Comment  : The program finds dual of a triangular mesh and then
+                create a polyhedral mesh from the underlying Voronoi
+                frame. The reason to use  PSD  for this meshing tool
+                is the use of finite element framework for this tool
+
+     -------------------------------------------------------------------
+
+     PDMT a parallel  dual meshing tool uses   finite  element framework
+     to convert a triangular / tetrahedral mesh into a  polyhedral  mesh.
+     PDMT is distributed  in  the  hope that it  will be useful, HOWEVER
+     WITHOUT ANY WARRANTY; or without  even  implied warranty of FITNESS
+     FOR A PARTICULAR PURPOSE.
+
+*******************************************************************************/
+
+include "getARGV.idp";     // Activate Commandline arguments
+
+
+//-----------------------------------------
+// Commandline parameters
+//-----------------------------------------
+
+
+//
+// --debug : to print some verbos info
+//
+
+bool DEBUG = false;
+     DEBUG = usedARGV("--debug") != -1;
+
+//
+// --mesh : to provide external mesh 
+//
+    
+bool readExtMesh = false;
+string ThName = "NULL";
+       ThName = getARGV( "--mesh" , ThName );
+if(ThName != "NULL")
+     readExtMesh = true;
+
+//     
+// --postproc : to produce vtu mesh fro post process
+//
+     
+bool postprocess = false;
+     postprocess = usedARGV("--postproc") != -1;
+                 
+//-----------------------------------------
+// Print program message
+//-----------------------------------------
+
+cout << "===================================\n"
+     << " PDMT: Prallel Dual Mesing Tool\n"
+     << "===================================\n"
+     << "  Debug           : " << DEBUG       << "\n"
+     << "  External Mesh   : " << readExtMesh << "\n"
+     << "  Post-processing : " << postprocess << "\n"; 
+         
+//-----------------------------------------
+// Load or create tria. mesh
+//-----------------------------------------
+
+mesh Th;
+
+if(readExtMesh)
+{
+  if(ThName.find(".mesh") == -1 && ThName.find(".msh") == -1)               
+    cout <<"INVALID MESH: PDMT only accepts '.msh' or '.mesh' formats"<< endl;                                                                            
+                                                                                
+  if(ThName.find(".msh") > -1)                                                
+    {                                                                           
+    load "gmsh"                                                             
+    Th = gmshload(ThName);                                                   
+    }                                                                           
+
+  if(ThName.find(".mesh") > -1)                                               
+    {                                                                           
+    Th = readmesh(ThName);                                                   
+    }
+}
+else
+{
+  Th = square (2,2);
+}
+        
+
+//-----------------------------------------
+// Print Stats Tria mesh
+//-----------------------------------------
+
+if(DEBUG)
+  cout << "----------------------------------\n"
+       << " 2D Triangular mesh stats\n"
+       << "----------------------------------\n"
+       << " Number of Triangles    " << Th.nt  << "\n"
+       << " Number of Node         " << Th.nv  << "\n"
+       << " Number of border edges " << Th.nbe << "\n"     
+       << "----------------------------------\n";
+          
+//-----------------------------------------
+// Find Negighbours
+//-----------------------------------------
+
+int[int] headv(Th.nv) , 
+         next(Th.nt*3);
+         
+headv=-1;
+
+
+for(int k =0;k< Th.nt; ++k)
+  for(int i =0;i< 3; ++i)
+    { 
+    int v = Th[k][i];        // vertex number
+    next[3*k+i] = headv[v];
+    headv[v]= 3*k+i;
+    }
+  
+
+if(DEBUG)
+  {
+  cout << "----------------------------------\n"
+       << " List of triangle for each vertex \n"
+       << "----------------------------------\n";
+  // Print the list of triangles //
+  // that  corresponds  to  each //
+  // vertex v in the mesh        //          
+  for(int v=0; v<Th.nv;++v)
+    { 
+    cout << v << " : ";
+    for(int p=headv[v]; p >=0; p=next[p])
+      {
+      int k = p/3, i = p%3;
+      assert( Th[k][i]==v); // check …
+      cout << k << " " ;
+      }
+      cout << endl;
+    }
+  }    
+
+
+fespace feSp0(Th, P0);
+feSp0 ThP0x=x, ThP0y=y; 
+
+
+if(DEBUG)
+  {
+  cout << "----------------------------------\n"
+       << " List of P0 for each triangle \n"
+       << "----------------------------------\n";
+  for(int k =0; k< feSp0.ndof; ++k)
+     cout << k << " : " << ThP0x[][k] << " : " << ThP0y[][k] << "  " << endl;
+  }
+
+
+fespace Vh(Th,P1);
+varf Gamma(u, v) = on(1,2,3,4, u = 1.0);
+real[int] onGamma(Vh.ndof);
+onGamma = Gamma(0, Vh, tgv = -1);
+
+
+for(int i = 0; i < Vh.ndof; ++i) 
+    if(abs(onGamma[i]-1.0) < 0.1) 
+        cout << i << " on boundary" << endl;
+    else
+        cout << i << " inside " << endl;       
+
+
+
+
+/*---------------------------------------------------------------------
+// This code block can help 
+//---------------------------------------------------------------------
+
+int k = 0, l = 1, e = 1;
+
+// Number of boundary elements
+int NbBoundaryElements = Th.nbe;
+cout << "Number of boundary element = " << NbBoundaryElements << endl;
+
+
+// Boundary element k in {0, ..., Th.nbe}
+int BoundaryElement = Th.be(k);
+cout << "Boundary element " << k << " = " << BoundaryElement << endl;
+
+
+// Vertice l in {0, 1} of boundary element k
+int Vertex = Th.be(k)[l];
+cout << "Vertex " << l << " of boundary element " << k << " = " << Vertex << endl;
+
+
+// Triangle contains the boundary element k
+int Triangle = Th.be(k).Element;
+cout << "Triangle containing the boundary element " << k << " = " << Triangle << endl;
+
+
+// Triangle egde number containing the boundary element k
+int Edge = Th.be(k).whoinElement;
+cout << "Triangle edge number containing the boundary element " << k << " = " << Edge << endl;
+
+
+// Adjacent triangle of the triangle k by edge e
+//The value of e is changed to the corresponding edge in the adjacent triangle
+int Adjacent = Th[k].adj(e);
+cout << " Adjacent triangle of the triangle " << k 
+     << " by edge " << e << " = " << Adjacent 
+     << " Corresponding edge = " << e << endl;
+
+
+// If there is no adjacent triangle by edge e, the same triangle is returned
+//Th[k] == Th[k].adj(e)
+// Else a different triangle is returned
+//Th[k] != Th[k].adj(e)
+
+-----------------------------------------------------------------------*/
+
+//-----------------------------------------
+// Ouput to ParaView
+//-----------------------------------------
+
+if(postprocess)
+  {
+   load "iovtk";
+   int[int] vtuFileOrder = [1];
+   
+   savevtk( "mesh_tria.vtu"     ,
+            Th                  ,
+            order = vtuFileOrder   
+          );
+  }
+  
+ 
+//-----------------------------------------
+// Write Quad mesh
+//-----------------------------------------
+
+ 
+//-----------------------------------------
+// Print Stats Polyhedral mesh 
+//-----------------------------------------
+
+if(DEBUG)
+  cout << "----------------------------------\n"
+       << " Polyhedral mesh stats\n"
+       << "----------------------------------\n"
+       << " Number of Polyhedra    " << Th.nv           << "\n"
+       << " Number of Node         " << Th.nt + Th.nbe  << "\n"
+       << "----------------------------------\n";
