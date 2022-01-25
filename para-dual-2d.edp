@@ -23,7 +23,7 @@
 *******************************************************************************/
 
 include "getARGV.idp";     // Activate Commandline arguments
-load    "pdmt";            // Load pdmt library
+load    "./cpp/pdmt";      // Load pdmt library
 
 //-----------------------------------------
 // Commandline parameters
@@ -287,6 +287,10 @@ polyWrite << "POINTS " << Th.nt << " float\n";
 for(int i=0; i < feSpcP0.ndof; i++)
   polyWrite << ThP0x[][i] << "\t" << ThP0y[][i] << "\t 0\n";
 
+
+
+int localConnectivityTotal=0;
+
 for(int v=0; v<Th.nv;++v)
 {
   int localConnectivity = 0;
@@ -303,10 +307,11 @@ for(int v=0; v<Th.nv;++v)
       assert( Th[k][i]==v); // check …
       nAssociateTriangles[][v] = nAssociateTriangles[][v] + 1;
     }
+    localConnectivityTotal += nAssociateTriangles[][v] + 1;
   }
 }
 
-int localConnectivityTotal=0;
+/*
 for(int v=0; v<Th.nv;++v)
 {
   if(abs(onGamma[v]-1.0) < 0.1)
@@ -315,6 +320,7 @@ for(int v=0; v<Th.nv;++v)
   else
     localConnectivityTotal += nAssociateTriangles[][v] + 1;
 }
+*/
 
 polyWrite << "\n";
 polyWrite << "CELLS " << NodesInside << "\t" << localConnectivityTotal;
