@@ -10,7 +10,7 @@ all-local: $(DEP1)
 	@echo ""
 	@echo " Compilation list $(LIST_COMPILE)"
 
-pdmt.so: pdmt.cpp pdmt.hpp
+pdmt.$(SO_SUFFIX): pdmt.cpp pdmt.hpp
 	$(FFCXX) -auto pdmt.cpp
 	@echo ""	
 
