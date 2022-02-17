@@ -1,0 +1,32 @@
+/*****************************************************************************
+
+         This file is a part of PDMT (Parallel Dual Meshing Tool)
+
+     -------------------------------------------------------------------
+
+     Author(s): Mohd Afeef Badri
+     Email    : mohd-afeef.badri@cea.com
+     Date     : 14/01/2022
+     Comment  : The program finds dual of a triangular mesh and then
+                create a polyhedral mesh from the underlying Voronoi
+                frame. The reason to use  PSD  for this meshing tool
+                is the use of finite element framework for this tool
+
+     -------------------------------------------------------------------
+
+     PDMT a parallel  dual meshing tool uses   finite  element framework
+     to convert a triangular / tetrahedral mesh into a  polyhedral  mesh.
+     PDMT is distributed  in  the  hope that it  will be useful, HOWEVER
+     WITHOUT ANY WARRANTY; or without  even  implied warranty of FITNESS
+     FOR A PARTICULAR PURPOSE.
+
+*******************************************************************************/
+
+macro buildFeSpacesAndVariables()
+
+  fespace feSpcP0(Th,P0);
+          feSpcP0 ThP0x = x, ThP0y = y ;
+
+  fespace feSpcP1(Th,P1);
+          feSpcP1 nAssociateTriangles = 0;
+//

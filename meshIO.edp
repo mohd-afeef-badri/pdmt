@@ -1,0 +1,65 @@
+/*****************************************************************************
+
+         This file is a part of PDMT (Parallel Dual Meshing Tool)
+
+     -------------------------------------------------------------------
+
+     Author(s): Mohd Afeef Badri
+     Email    : mohd-afeef.badri@cea.com
+     Date     : 14/01/2022
+     Comment  : The program finds dual of a triangular mesh and then
+                create a polyhedral mesh from the underlying Voronoi
+                frame. The reason to use  PSD  for this meshing tool
+                is the use of finite element framework for this tool
+
+     -------------------------------------------------------------------
+
+     PDMT a parallel  dual meshing tool uses   finite  element framework
+     to convert a triangular / tetrahedral mesh into a  polyhedral  mesh.
+     PDMT is distributed  in  the  hope that it  will be useful, HOWEVER
+     WITHOUT ANY WARRANTY; or without  even  implied warranty of FITNESS
+     FOR A PARTICULAR PURPOSE.
+
+*******************************************************************************/
+
+
+//-----------------------------------------
+// Load or create tria. mesh
+//-----------------------------------------
+
+macro loadMesh()
+
+  mesh Th;
+
+  if( readExtMesh ){
+
+    if( ThName.find(".mesh") == -1 && ThName.find(".msh") == -1 ){
+      cout << " ******************* ERROR *******************\n"
+           << "  Error in input mesh                         \n"
+           << "  PDMT only accepts '.msh' or '.mesh' formats \n"
+           << " ******************* ERROR *******************\n"
+           << endl;
+      exit(1111);
+    }
+
+    if( ThName.find(".msh") > -1 ){
+      load "gmsh"
+      Th = gmshload(ThName);
+    }
+
+    if( ThName.find(".mesh") > -1 ){
+      Th = readmesh(ThName);
+    }
+  }
+  else{
+    Th = square (3,3);
+  }
+
+//
+
+
+
+
+macro savePolyMesh(){
+  PdmtPolyMeshWrite(""+ThName+"_poly.vtk", nodes = PolyNodesVTK, cells = PolyCellsVTK);
+}//
