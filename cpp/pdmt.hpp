@@ -45,7 +45,7 @@ Point2D nextToTop(stack<Point2D> &S)
   S.pop();
   Point2D res = S.top();
   S.push(p);
-  
+
   return res;
 }
 

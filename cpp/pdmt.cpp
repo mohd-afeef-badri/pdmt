@@ -29,12 +29,16 @@
 #include "ff++.hpp"
 #include "pdmt.hpp"
 
+#include "polyMeshWrite.hpp"
+
 using namespace std;
 
 static void InitFF()
 {
   Global.Add("pdmtConvexHull" ,"(",new OneOperator3_<int,KN<double>*,KN<double>*,KN<double>*>(PdmtConvexHull));
   Global.Add("PdmtMaxinTwoP1" ,"(",new OneOperator2_<double,KN<double>*, KN<double>*>(PdmtMaxinTwoP1));
-  Global.Add("PdmtUnitTest"  , "(",new OneOperator0<int>(PdmtTest));		
+  Global.Add("PdmtUnitTest"   ,"(",new OneOperator0<int>(PdmtTest));
+
+  Global.Add("PdmtPolyMeshWrite"  ,"(", new polyMeshWrite<double>);
 }
-LOADFUNC(InitFF) 
+LOADFUNC(InitFF)
