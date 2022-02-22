@@ -6,11 +6,8 @@
 
      Author(s): Mohd Afeef Badri
      Email    : mohd-afeef.badri@cea.com
-     Date     : 15/01/2022
-     Comment  : The program finds convex hull of a set of  points.
-                Original  program  found  online  was  adapted for
-                PDMT.  For explanation of the orientation()
-                www.geeksforgeeks.org/orientation-3-ordered-points
+     Date     : 22/02/2022
+     Comment  : The program collects functions needed by the pdmt mesher
 
      -------------------------------------------------------------------
 
@@ -66,7 +63,13 @@ long PdmtMarkBorderNodes(pmesh pTh, KN< long > *isBorderNode) {
 
 
 
-
+//-------------------------------------------------------------------------
+// PdmtFillSearchTableEdges : 
+//           This function takes 2D mesh Th and two vectors headVertexBorder
+//           and nextVertexBorder as input. At the end these two vectors can 
+//           be used to search and navigate through number of edges for each 
+//           mesh point i; 
+//-------------------------------------------------------------------------
 int PdmtFillSearchTableEdges(const Fem2D::Mesh* const &pTh, KN< long > *const &headVertexBorder,  KN< long > *const &nextVertexBorder) {
 
   const Mesh &Th = *pTh;
@@ -74,7 +77,7 @@ int PdmtFillSearchTableEdges(const Fem2D::Mesh* const &pTh, KN< long > *const &h
 #ifdef DEBUG
   cout << "\n"
           "--------------------------------------\n"
-          " PdmtMarkBorderNodes function called  \n"
+          " PdmtFillSearchTableEdges function called  \n"
           "--------------------------------------\n";
       
   cout << "  Th.nv  - mesh vertices -    "  << Th.nv  << "\n" 
@@ -102,6 +105,13 @@ int PdmtFillSearchTableEdges(const Fem2D::Mesh* const &pTh, KN< long > *const &h
 }
 
 
+//-------------------------------------------------------------------------
+// PdmtFillSearchTableTriangles : 
+//           This function takes 2D mesh Th and two vectors  headVertex  and 
+//           and  nextVertex as input. At  the  end these two vectors can be  
+//           used to search &  navigate through number of triangles for each 
+//           mesh point i; 
+//-------------------------------------------------------------------------
 int PdmtFillSearchTableTriangles(const Fem2D::Mesh* const &pTh, KN< long > *const &headVertex,  KN< long > *const &nextVertex) {
 
   const Mesh &Th = *pTh;
