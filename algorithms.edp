@@ -28,7 +28,7 @@
 //-----------------------------------------
 
 macro identifyCellHeadAndNextVerticies()
-
+  
   int[int] headv(Th.nv)  ,
            next(Th.nt*3) ;
 
@@ -39,16 +39,37 @@ macro identifyCellHeadAndNextVerticies()
       int v = Th[k][i];        /* current vertex number */
       next[3*k+i] = headv[v];  /* next vertex           */
       headv[v]    = 3*k+i;     /* update head vertex    */
+      cout << " k " << k << " i " << i << " Th["+k+"]["+i+"] " << Th[k][i] << " next["+int(3*k+i)+"] " << next[3*k+i] << " headv["+v+"] "<< headv[v] << endl; 
     }
   }
 //
+
+
+
+macro identifyBoundaryHeadAndNextVerticiesss()
+
+
+
+  for(int k = 0; k < Th.nbe; ++k){
+    for(int i = 0; i < 2; ++i){
+      int v = Th.be(k)[i];        /* current vertex number */
+      nextb[2*k+i] = headvb[v];  /* next vertex           */
+      headvb[v]    = 2*k+i;     /* update head vertex    */
+      cout << " k " << k << " i " << i << " Th["+k+"]["+i+"] " << Th.be(k)[i] << " next["+int(2*k+i)+"] " << nextb[2*k+i] << " headv["+v+"] "<< headvb[v] << endl; 
+    }
+  }
+//
+
+
 
 
 //-----------------------------------------
 // Find border nodes using FEM variational formulation
 //-----------------------------------------
 
+
 macro identifyBorderAndNonBorderNodes()
+
 
   varf Gamma(u, v) = on(1,2,3,4, u = 1.0);
 
@@ -66,17 +87,15 @@ macro identifyBorderAndNonBorderNodes()
 //
 
 
+
 macro calculateTotalLocalConnectivity()
 
-  for(int v=0; v<Th.nv;++v){
-    int localConnectivity = 0;
+  for(int v=0; v<Th.nv; ++v){
     if(abs(onGamma[v]-1.0) < 0.1){
-      continue; /*cout << v << " Skip border node" << endl;*/
+      continue;
     }
     else{
       for(int p=headv[v]; p >=0; p=next[p]){
-        int k = p/3, i = p%3;
-        assert( Th[k][i]==v); /* check …*/
         nAssociateTriangles[][v] = nAssociateTriangles[][v] + 1;
       }
     }
@@ -87,40 +106,42 @@ macro calculateTotalLocalConnectivity()
 
 macro initilizePolyMesh()
 
-  int PolyNodesNumber =  Th.nt;
+  int PolyNodesNumber =  Th.nt + Th.nbe + Th.nbe;
   real[int,int] PolyNodesVTK (PolyNodesNumber,2);
 
-  int PolyCellNumber =  NodesInside;
+  int PolyCellNumber =  NodesInside + Th.nbe;
   int [int][int] PolyCellsVTK;
   PolyCellsVTK.resize(PolyCellNumber);
 
 //
 
-
+/*
+  PolyNodesVTK(0:Th.nt,0) = ThP0x[];
+  PolyNodesVTK(0:Th.nt,1) = ThP0y[];
+ */ 
 macro computePolyMesh(){
 
-  PolyNodesVTK(:,0) = ThP0x[];
-  PolyNodesVTK(:,1) = ThP0y[];
-
-
   real[int]  P0x(0), P0y(0), P0nI(0);
-  int indexploy=0;
+  int indexploy = 0;
 
   for(int v=0; v<Th.nv;++v){
 
-    int localConnectivity=0;
-
-    if(abs(onGamma[v]-1.0) < 0.1)
-      continue;  /*cout << v << " Skip border node" << endl;*/
-    else{
+    if(abs(onGamma[v]-1.0) < 0.1){
+  
+      P0x.resize(0); P0y.resize(0); P0nI.resize(0);  
+      
+      for(int p=headv[v]; p >=0; p=next[p]){
+        cout << "not ok "<< p << "  " << p/2 <<endl;
+      }
+             cout << "\n\n " <<endl;
+    }else{
 
       P0x.resize(0); P0y.resize(0); P0nI.resize(0);
-      cout << v << " : ";
 
       PolyCellsVTK[indexploy].resize(nAssociateTriangles[][v]);
 
       for(int p=headv[v]; p >=0; p=next[p]){
-
+       cout << "ok ok "<< p << "  " << p/3 <<endl;
         int k = p/3;
         P0x.resize(P0x.n+1);
         P0y.resize(P0y.n+1);
@@ -131,11 +152,11 @@ macro computePolyMesh(){
         P0nI[P0nI.n-1] = k;
 
       }
-
+             cout << "\n\n " <<endl;
       pdmtConvexHull(P0x,P0y,P0nI);
 
       for(int kk; kk < P0nI.n ; kk++)
-        PolyCellsVTK[indexploy][kk]=P0nI[kk];
+        PolyCellsVTK[indexploy][kk] = P0nI[kk];
 
       indexploy++;
 
@@ -143,4 +164,3 @@ macro computePolyMesh(){
   }
 
 }//
-

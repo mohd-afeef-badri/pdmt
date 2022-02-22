@@ -6,7 +6,7 @@
 
      Author(s): Mohd Afeef Badri
      Email    : mohd-afeef.badri@cea.com
-     Date     : 14/01/2022
+     Date     : 22/02/2022
      Comment  : The program finds dual of a triangular mesh and then
                 create a polyhedral mesh from the underlying Voronoi
                 frame. The reason to use  PSD  for this meshing tool
@@ -23,40 +23,61 @@
 *******************************************************************************/
 
 
-//-----------------------------------------
-// Load or create tria. mesh
-//-----------------------------------------
 
-macro loadMesh()
+//-----------------------------------------------------------------------------
+// loadTheMesh : This function Load or create tria. mesh
+//-----------------------------------------------------------------------------
+//
+// USAGE:
+//    The `--mesh` argument provides the mesh in .msh | .mesh | .vtk for this
+//    function. In this case we use  `mesh Th = loadTheMesh(ThName);`
+//
+//    The user can also directly provide the  mesh  via a  string argument to
+//    this function  `mesh Th = loadTheMesh("meshMesh.mesh");`
+//
+//    The user can load a simple square or circle mesh by using the following
+//    `mesh Th = loadTheMesh("square")` or `mesh Th = loadTheMesh("circle")`
+//
+//----------------------------------------------------------------------------
 
-  mesh Th;
+func mesh loadTheMesh(string meshName){
+
+  mesh Th2D;
 
   if( readExtMesh ){
-
-    if( ThName.find(".mesh") == -1 && ThName.find(".msh") == -1 ){
-      cout << " ******************* ERROR *******************\n"
-           << "  Error in input mesh                         \n"
-           << "  PDMT only accepts '.msh' or '.mesh' formats \n"
-           << " ******************* ERROR *******************\n"
+    if( meshName.find(".mesh") == -1 && meshName.find(".msh") == -1 && meshName.find(".vtk") == -1 ){
+      cout << " ******************* ERROR ***********************\n"
+           << "  Error in input mesh                             \n"
+           << "  PDMT only accepts '.msh' '.mesh' '.vtk' formats \n"
+           << " ******************* ERROR ***********************\n"
            << endl;
       exit(1111);
     }
 
-    if( ThName.find(".msh") > -1 ){
+    if( meshName.find(".msh") > -1 ){
       load "gmsh"
-      Th = gmshload(ThName);
+      Th2D = gmshload(meshName);
     }
 
-    if( ThName.find(".mesh") > -1 ){
-      Th = readmesh(ThName);
+    if( meshName.find(".mesh") > -1 ){
+      Th2D = readmesh(meshName);
+    }
+
+    if( meshName.find(".vtk") > -1 ){
+      load "iovtk"
+      Th2D = vtkload(meshName);
     }
   }
   else{
-    Th = square (3,3);
+    if( meshName == "square" )
+      Th2D = square (2,2);
+    if( meshName == "circle" ){
+      border a(t=0, 2*pi){x=cos(t); y=sin(t); label=1;}
+      Th2D = buildmesh(a(20));
+    }
   }
-
-//
-
+  return Th2D;
+}
 
 
 

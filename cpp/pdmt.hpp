@@ -226,17 +226,32 @@ int PdmtConvexHull(KN<double> *const & px, KN<double> *const & py, KN<double> *c
 
 int PdmtTest()
 {
-  Point2D points[5];
+  Point2D points[6];
+
+/*
+0.761755	0.761755	6
+0.332496	1.02236	5
+0.638909	0.995436	1
+0.5	        0.866025	14
+0.683013	0.683013	23
+0.25	        0.933013	22
 
   points[0].x = 0;     points[0].y = 0;      points[0].nn = 0;
   points[1].x = 0.25;  points[1].y = 0.75;   points[1].nn = 1;
   points[2].x = 0.5;   points[2].y = 0.5;    points[2].nn = 2;
   points[3].x = 0;     points[3].y = 0.75;   points[3].nn = 3;
   points[4].x = 0.5;   points[4].y = 0;      points[4].nn = 4;
+*/
+
+  points[0].x = 0.761755;  points[0].y = 0.761755;   points[0].nn = 6 ;
+  points[1].x = 0.332496;  points[1].y = 1.022360;   points[1].nn = 5 ;
+  points[2].x = 0.638909;  points[2].y = 0.995436;   points[2].nn = 1 ;
+  points[3].x = 0.500000;  points[3].y = 0.866025;   points[3].nn = 7 ;
+  points[4].x = 0.683013;  points[4].y = 0.683013;   points[4].nn = 23;
+  points[5].x = 0.250000;  points[5].y = 0.933013;   points[5].nn = 22;
 
   int n = sizeof(points)/sizeof(points[0]);
 
-#ifdef DEBUG
   cout << "" << endl;
   cout << "--------------------------------------" << endl;
   cout << "BEFORE C-HULL FUNCTION     " << endl;
@@ -246,14 +261,13 @@ int PdmtTest()
   points[1].x << "\t" << points[1].y << "\t" << points[1].nn << "\n" <<
   points[2].x << "\t" << points[2].y << "\t" << points[2].nn << "\n" <<
   points[3].x << "\t" << points[3].y << "\t" << points[3].nn << "\n" <<
-  points[4].x << "\t" << points[4].y << "\t" << points[4].nn << "\n"   ;
+  points[4].x << "\t" << points[4].y << "\t" << points[4].nn << "\n" <<
+  points[5].x << "\t" << points[5].y << "\t" << points[5].nn << "\n"   ;
   cout << "--------------------------------------" << endl;
   cout << "" << endl;
-#endif
 
   convexHull(points, n);
 
-#ifdef DEBUG
   cout << "" << endl;
   cout << "--------------------------------------" << endl;
   cout << "AFTER C-HULL FUNCTION     " << endl;
@@ -263,10 +277,10 @@ int PdmtTest()
   points[1].x << "\t" << points[1].y << "\t" << points[1].nn << "\n" <<
   points[2].x << "\t" << points[2].y << "\t" << points[2].nn << "\n" <<
   points[3].x << "\t" << points[3].y << "\t" << points[3].nn << "\n" <<
-  points[4].x << "\t" << points[4].y << "\t" << points[4].nn << "\n"   ;
+  points[4].x << "\t" << points[4].y << "\t" << points[4].nn << "\n" <<
+  points[5].x << "\t" << points[5].y << "\t" << points[5].nn << "\n"   ;
   cout << "--------------------------------------" << endl;
   cout << "" << endl;
-#endif
 
  return 0;
 }
