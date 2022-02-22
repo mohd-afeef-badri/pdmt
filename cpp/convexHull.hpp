@@ -194,36 +194,44 @@ int PdmtConvexHull(KN<double> *const & px, KN<double> *const & py, KN<double> *c
 
   int n = sizeof(points)/sizeof(points[0]);
 
+#ifdef DEBUG
   cout << "" << endl;
   cout << "--------------------------------------" << endl;
   cout << " PdmtConvexHull BEFORE C-HULL FUNCTION" << endl;
   cout << "--------------------------------------" << endl;
   cout << "x" << "\t" << "y" << "\t" << "n" << "\n\n" << endl;
+#endif
 
   for(long int i=0; i<nn; i++)
     cout << points[i].x << "\t" << points[i].y << "\t" << points[i].nn << "\n" << endl;
 
+#ifdef DEBUG
   cout << "--------------------------------------\n" << endl;
+#endif
 
   convexHull(points, n);
 
+#ifdef DEBUG
   cout << "" << endl;
   cout << "--------------------------------------" << endl;
   cout << " PdmtConvexHull AFTER C-HULL FUNCTION " << endl;
   cout << "--------------------------------------" << endl;
   cout << "x" << "\t" << "y" << "\t" << "n" << "\n\n" << endl;
+#endif
 
   for(long int i=0; i<nn; i++)
     cout << points[i].x << "\t" << points[i].y << "\t" << points[i].nn << "\n" << endl;
 
+#ifdef DEBUG
   cout << "--------------------------------------\n" << endl;
+#endif
 
   for(long int i=0; i<nn; i++)
       *(nI[0]+i) = points[i].nn ;
 
   return 0;
 }
-
+  
 int PdmtTest()
 {
   Point2D points[6];
@@ -283,14 +291,4 @@ int PdmtTest()
   cout << "" << endl;
 
  return 0;
-}
-
-double PdmtMaxinTwoP1(KN<double> *const & f, KN<double> *const & f1)
-{
-  long int nn = f->N();
-
-  for(long int i=0; i<nn; i++)
-    *(f[0]+i)=max(*(f1[0]+i),*(f[0]+i));
-
-  return 0.0;
 }

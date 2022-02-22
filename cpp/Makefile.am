@@ -1,6 +1,9 @@
 LIST_COMPILE= pdmt.cpp
 
 DEP1 = pdmt.$(SO_SUFFIX)
+
+PDMT_DEBUG = -DDEBUG
+#PDMT_DEBUG = -DNDEBUG
 	
 all-local: $(DEP1)
 	@echo ""
@@ -10,8 +13,8 @@ all-local: $(DEP1)
 	@echo ""
 	@echo " Compilation list $(LIST_COMPILE)"
 
-pdmt.$(SO_SUFFIX): pdmt.cpp pdmt.hpp polyMeshWrite.hpp
-	$(FFCXX) -auto pdmt.cpp
+pdmt.$(SO_SUFFIX): pdmt.cpp pdmtFunctions.hpp convexHull.hpp polyMeshWrite.hpp
+	$(FFCXX) -auto pdmt.cpp $(PDMT_DEBUG)
 	@echo ""	
 
 install-exec-local:
