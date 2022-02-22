@@ -15,3 +15,13 @@ maintainer-clean-local: clean-local
 	@echo "*============================================================*"
 	@echo ""	
 	rm  -rf Makefile Makefile.in
+	
+check-local: check-convex-hull
+	@echo ""
+	@echo "*============================================================*"
+	@echo " performingg check for pdmt"
+	@echo "*============================================================*"
+	@echo ""
+
+check-convex-hull: UnitTestCovexHull.edp
+	./../../../psd-solve/PSD_Solve -np 1 UnitTestCovexHull.edp -v 0 -ns -nw > UnitTestCovexHull.log
