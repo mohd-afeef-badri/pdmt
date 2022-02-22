@@ -1,2 +1,6 @@
 # allow files #
 !Main.edp
+
+## Not allowed files ##
+images/*
+test-meshes/*
