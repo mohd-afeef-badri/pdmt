@@ -31,7 +31,7 @@ using namespace std;
 struct Point2D
 {
   double x , y;   // x and y coordinates
-  int nn;         // node number in the mesh
+  long int nn;    // node number in the mesh
 };
 
 // A global point needed for  sorting points with reference
@@ -179,7 +179,7 @@ void convexHull(Point2D points[], int n)
 }
 
 
-int PdmtConvexHull(KN<double> *const & px, KN<double> *const & py, KN<double> *const & nI)
+int PdmtConvexHull(KN<double> *const & px, KN<double> *const & py, KN<long> *const & nI)
 {
   long int nn = px->N();
 
@@ -189,7 +189,7 @@ int PdmtConvexHull(KN<double> *const & px, KN<double> *const & py, KN<double> *c
   {
      points[i].x  = *(px[0]+i);
      points[i].y  = *(py[0]+i);
-     points[i].nn = int(*(nI[0]+i));
+     points[i].nn = *(nI[0]+i);
   }
 
   int n = sizeof(points)/sizeof(points[0]);
@@ -200,12 +200,10 @@ int PdmtConvexHull(KN<double> *const & px, KN<double> *const & py, KN<double> *c
   cout << " PdmtConvexHull BEFORE C-HULL FUNCTION" << endl;
   cout << "--------------------------------------" << endl;
   cout << "x" << "\t" << "y" << "\t" << "n" << "\n\n" << endl;
-#endif
-
+  
   for(long int i=0; i<nn; i++)
     cout << points[i].x << "\t" << points[i].y << "\t" << points[i].nn << "\n" << endl;
 
-#ifdef DEBUG
   cout << "--------------------------------------\n" << endl;
 #endif
 
@@ -217,12 +215,10 @@ int PdmtConvexHull(KN<double> *const & px, KN<double> *const & py, KN<double> *c
   cout << " PdmtConvexHull AFTER C-HULL FUNCTION " << endl;
   cout << "--------------------------------------" << endl;
   cout << "x" << "\t" << "y" << "\t" << "n" << "\n\n" << endl;
-#endif
 
   for(long int i=0; i<nn; i++)
     cout << points[i].x << "\t" << points[i].y << "\t" << points[i].nn << "\n" << endl;
 
-#ifdef DEBUG
   cout << "--------------------------------------\n" << endl;
 #endif
 
