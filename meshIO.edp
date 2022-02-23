@@ -22,8 +22,6 @@
 
 *******************************************************************************/
 
-
-
 //-----------------------------------------------------------------------------
 // loadTheMesh : This function Load or create tria. mesh
 //-----------------------------------------------------------------------------
@@ -42,10 +40,17 @@
 
 func mesh loadTheMesh(string meshName){
 
-  mesh Th2D;
+//----------------------------------------------------------------------------
+// mesh Th2D:
+//   $\mathcal{T}_h$ is triangulation of $\Omega$ with size  $h$. The
+//   $\mathcal{T}_h$ is a set of triangles $\{T_k\}_{k=1,\cdots,n_t}$
+//   with $n_t$ being the nuber of triangles. Also $\Omega_h=\cup_{k=1}^{n_t}T_k$.
+//----------------------------------------------------------------------------
 
-  if( readExtMesh ){
-    if( meshName.find(".mesh") == -1 && meshName.find(".msh") == -1 && meshName.find(".vtk") == -1 ){
+    mesh Th2D;
+
+    if(   (meshName.find(".mesh") == -1 && meshName.find(".msh") == -1 && meshName.find(".vtk") == -1) 
+        &&(meshName == "square" && meshName == "circle" )){
       cout << " ******************* ERROR ***********************\n"
            << "  Error in input mesh                             \n"
            << "  PDMT only accepts '.msh' '.mesh' '.vtk' formats \n"
@@ -67,20 +72,14 @@ func mesh loadTheMesh(string meshName){
       load "iovtk"
       Th2D = vtkload(meshName);
     }
-  }
-  else{
+
     if( meshName == "square" )
       Th2D = square (2,2);
+      
     if( meshName == "circle" ){
       border a(t=0, 2*pi){x=cos(t); y=sin(t); label=1;}
       Th2D = buildmesh(a(20));
     }
-  }
-  return Th2D;
+
+    return Th2D;
 }
-
-
-
-macro savePolyMesh(){
-  PdmtPolyMeshWrite(""+ThName+"_poly.vtk", nodes = PolyNodesVTK, cells = PolyCellsVTK);
-}//

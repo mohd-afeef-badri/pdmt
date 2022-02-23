@@ -26,42 +26,67 @@
 using namespace std;
 
 //-------------------------------------------------------------------------
-// PdmtMarkBorderNodes : This function takes 2D mesh Th and a vector 
-//                       isBorderNode as input. At the end :
-//                         \forall i=[0:Th.nv]
-//                           isBorderNode(i) = 0 (if i is not on border)
-//                           isBorderNode(i) > 0 (if i is on border)
+// PdmtGetMeshInfo : 
+//     This function takes as inputs i) 2D mesh pTh, ii) vector isBorderNode
+//     and ii) a  vector meshInfo. At the end of this function
+//          \forall i=[0:Th.nv]
+//           isBorderNode(i) = 0 (if i is not on border)
+//           isBorderNode(i) > 0 (if i is on border)
+//     and
+//          meshInfo contains the following info
+//            meshInfo(0) = Total # nodes
+//            meshInfo(1) = Total # nodes inside  
+//            meshInfo(2) = Total # nodes on boundary
+//            meshInfo(2) = Total # triangles
+//            meshInfo(2) = Total # edges
 //-------------------------------------------------------------------------
-long PdmtMarkBorderNodes(pmesh pTh, KN< long > *isBorderNode) { 
-
-  const Mesh &Th = *pTh;
+int PdmtGetMeshInfo(const Fem2D::Mesh* const &pTh, KN< long > *const &isBorderNode, KN< long > *const &meshInfo) { 
 
 #ifdef DEBUG
   cout << "\n"
           "--------------------------------------\n"
-          " PdmtMarkBorderNodes function called  \n"
+          " PdmtGetBorderInfo function called  \n"
           "--------------------------------------\n";
-      
-  cout << "  Th.nv  - mesh vertices -    "  << Th.nv  << "\n" 
-          "  Th.nbe - mesh edges    -    "  << Th.neb << "\n";
-          
-  cout << "--------------------------------------\n" << endl;  
 #endif 
+          
+  const Mesh &Th = *pTh;
   
-  isBorderNode->resize(Th.nv);                  // resize isBorderNode  
+  isBorderNode->resize(Th.nv);                  // resize isBorderNode
+  meshInfo->resize(5);  
+  
+  long nbBorderNodes = 0;
   
   for(int i = 0; i < Th.nv; ++i)                // isBorderNode = 0
     *(isBorderNode[0]+i) = 0;
-  
+
   for(int k = 0; k < Th.neb; ++k)               // isBorderNode > 0
    for(int i = 0; i < 2; ++i)
      *(isBorderNode[0]+Th(Th.be(k)[i])) += 1; 
-     
-  return 0; 
 
+  for(int i = 0; i < Th.nv; ++i)                // isBorderNode = 0
+    if(*(isBorderNode[0]+i)) 
+      nbBorderNodes = nbBorderNodes+1;
+
+  *(meshInfo[0]+0) = Th.nv                 ; // meshInfo(0) = Total # nodes
+  *(meshInfo[0]+1) = Th.nv - nbBorderNodes ; // meshInfo(1) = Total # nodes inside  
+  *(meshInfo[0]+2) = nbBorderNodes         ; // meshInfo(2) = Total # nodes on boundary
+  *(meshInfo[0]+3) = Th.nt                 ; // meshInfo(3) = Total # triangles
+  *(meshInfo[0]+4) = Th.neb                ; // meshInfo(4) = Total # edges
+
+#ifdef DEBUG
+  cout << "\n"
+          " PdmtGetBorderInfo stats:\n"
+          "  meshInfo[0] - # nodes             = "  << *(meshInfo[0]+0)  << "\n" 
+          "  meshInfo[1] - # nodes inside      = "  << *(meshInfo[0]+1)  << "\n"
+          "  meshInfo[2] - # nodes on boundary = "  << *(meshInfo[0]+2)  << "\n" 
+          "  meshInfo[3] - # triangles         = "  << *(meshInfo[0]+3)  << "\n"          
+          "  meshInfo[4] - # edges             = "  << *(meshInfo[0]+4)  << "\n";
+                                                 
+  cout << "--------------------------------------\n" << endl;  
+#endif 
+
+  return 0;
 }
-
-
 
 //-------------------------------------------------------------------------
 // PdmtFillSearchTableEdges : 
@@ -109,7 +134,7 @@ int PdmtFillSearchTableEdges(const Fem2D::Mesh* const &pTh, KN< long > *const &h
 // PdmtFillSearchTableTriangles : 
 //           This function takes 2D mesh Th and two vectors  headVertex  and 
 //           and  nextVertex as input. At  the  end these two vectors can be  
-//           used to search &  navigate through number of triangles for each 
+//           used to search  &  navigate through number of triangles for each 
 //           mesh point i; 
 //-------------------------------------------------------------------------
 int PdmtFillSearchTableTriangles(const Fem2D::Mesh* const &pTh, KN< long > *const &headVertex,  KN< long > *const &nextVertex) {

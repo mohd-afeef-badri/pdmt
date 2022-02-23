@@ -27,6 +27,7 @@
 #include <stdlib.h>
 
 #include "ff++.hpp"
+#include "AFunction_ext.hpp"
 
 #include "convexHull.hpp"
 #include "polyMeshWrite.hpp"
@@ -39,12 +40,12 @@ using namespace Fem2D;
 static void InitFF()
 {
   
-  Global.Add("pdmtConvexHull" ,"(",new OneOperator3_<int,KN<double>*,KN<double>*,KN<double>*>(PdmtConvexHull));
+  Global.Add("pdmtConvexHull" ,"(",new OneOperator3_<int,KN<double>*,KN<double>*,KN<long>*>(PdmtConvexHull));
   Global.Add("PdmtMaxinTwoP1" ,"(",new OneOperator2_<double,KN<double>*, KN<double>*>(PdmtMaxinTwoP1));
   Global.Add("PdmtUnitTest"   ,"(",new OneOperator0<int>(PdmtTest));
   Global.Add("PdmtFillSearchTableTriangles", "(", new OneOperator3_< int,  pmesh, KN< long > *, KN< long > * >(PdmtFillSearchTableTriangles));
   Global.Add("PdmtFillSearchTableEdges", "(", new OneOperator3_< int,  pmesh, KN< long > *, KN< long > * >(PdmtFillSearchTableEdges));
-  Global.Add("PdmtMarkBorderNodes", "(", new OneOperator2< long, pmesh, KN< long > * >(PdmtMarkBorderNodes)); 
+  Global.Add("PdmtGetMeshInfo", "(", new OneOperator3_< int,  pmesh, KN< long > *, KN< long > * >(PdmtGetMeshInfo));
   Global.Add("PdmtPolyMeshWrite"  ,"(", new polyMeshWrite<double>);
 }
 LOADFUNC(InitFF)

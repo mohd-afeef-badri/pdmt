@@ -31,251 +31,219 @@
      command line parameters
 
        --debug    : to print some verbos info
-       --mesh     : to provide external mesh (accepts .mesh and .msh)
+       --mesh     : to provide external mesh (accepts .mesh, .msh, .vtk)
+                    also accepts ("square" or "circle")
 
 *******************************************************************************/
 
 
 load    "./cpp/pdmt";                    // Load pdmt library
 
-include "getCommandLineInput.edp";       // Get commandline imput parameters
-include "debug.edp";                     // Contains debug macros (verbos prints)
+include "getARGV.idp";                   // Activate Commandline arguments
 include "meshIO.edp";                    // mesh loading and saving
-include "feSpacesAndVariables.edp";      // FEM spaces and variables
-include "algorithms.edp";                // includes algorithms used
+
+//----------------------------------------------------------------------
+//       Nomenclature 
+//----------------------------------------------------------------------
+/*
+
+  Th    =  $\mathcal T_h$     = 2D triangular mesh
+  Ph    =  $\mathcal P_h$     = 2D polygon mesh
+  Ti    =     $\T_i$          = triangular element of mesh Th
+  Pi    =     $\P_i$          = polygon element of mesh Th      
+  Name  =       -             = name of something
+  Nn    =     $N_n$           = number of nodes
+  Nni   =     $N_ni$          = number of nodes inside (!boundary)
+  Nnb   =     $N_nb$          = number of nodes on boundary
+  Nt    =     $N_t$           = number of triangles
+  Nbe   =     $N_be$          = number of boundary edges
+  Np    =     $N_p$           = number of polygons
+  Ne    =     $N_e$           = number of edges
+  V0h   =     $V0_{h}$        = piecewise constant finite element space
+  V1h   =     $V1_{h}$        = piecewise linear finite element space
+  ThVix = ${\V_x\}_{i=0}^N_n$ = x - coordinate at each vertex of mesh
+  ThViy = ${\V_y\}_{i=0}^N_n$ = y - coordinate at each vertex of mesh    
+  ThTix = ${\T_x\}_{i=0}^N_t$ = triangle centre node x - coordinate
+  ThTiy = ${\T_y\}_{i=0}^N_t$ = triangle centre node y - coordinate
+  ThEix = ${\E_x\}_{i=0}^N_be$= edge centre node x - coordinate
+  ThEiy = ${\E_y\}_{i=0}^N_be$= edge centre node y - coordinate
+  PhV   = $\{Vx, Vy\}_{i=1}^{N_n}$ = 2D polygon mesh vertices vector  
+*/
 
 
-if (DEBUG){
-  printProgramBegins;                 // prints only if --debug
 
-  mesh Th = loadTheMesh(ThName);
- // mesh Th = loadTheMesh("square");
+//-----------------------------------------------------------------------
+// load mesh 
+//-----------------------------------------------------------------------
+ string ThName = getARGV( "--mesh" , "circle" );    // Name of the mesh
+ mesh   Th     = loadTheMesh( ThName );             // function in meshIO.edp
 
 
-  saveInputMeshVtu;                   // saves  only if --debug
-  printInputMeshStats;                // prints only if --debug
+//-----------------------------------------------------------------------
+// get mesh info
+//-----------------------------------------------------------------------
+ int[int] isBorderNode ,                    // vector to mark boundary node 
+          meshInfo     ;                    // info on mesh (Nn, Nt, Nbe,..)
+          
+ PdmtGetMeshInfo(Th,isBorderNode,meshInfo); // function from pdmt library
+ 
+ int ThNn  =  meshInfo[0],                  // read nomenclature                  
+     ThNni =  meshInfo[1], 
+     ThNnb =  meshInfo[2],   
+     ThNt  =  meshInfo[3],   
+     ThNbe =  meshInfo[4];
+     
 
-  buildFeSpacesAndVariables;
 
-  printBarryCentersFromP0Space        // prints only if --debug
-
-//  identifyBoundaryHeadAndNextVerticiesss;
-
-  cout << "------------------------- isBorderNode -------------------------" << endl;
-
-  int[int] isBorderNode;
-  PdmtMarkBorderNodes(Th,isBorderNode);
-
-  cout << "------------------------- isBorderNode -------------------------" << endl;
+//-----------------------------------------------------------------------
+// create search tables 
+//-----------------------------------------------------------------------
+  int[int] headvb, nextb;                      // search table head and next vertex
+  PdmtFillSearchTableEdges(Th,headvb,nextb);   // function from pdmt library
   
-  
-  cout << "------------ identifyBoundaryHeadAndNextVerticiesss ------------" << endl;  
-    
-  int[int] headvb, nextb; 
-  PdmtFillSearchTableEdges(Th,headvb,nextb);
-  
-  cout << "------------ identifyBoundaryHeadAndNextVerticiesss ------------" << endl;  
-  
-  
-
- // identifyCellHeadAndNextVerticies;
-
-  int[int] headv, next ;   
-  PdmtFillSearchTableTriangles(Th,headv,next);
-
-  printTriangleListForEachNode ;      // prints only if --debug
-
-//  identifyBorderAndNonBorderNodes;
+  int[int] headv, next;                        // search table head and next vertex
+  PdmtFillSearchTableTriangles(Th,headv,next); // function from pdmt library
+     
 
 
-  int NodesInside = 0, NodesBorder = 0;
+//-----------------------------------------------------------------------
+// create finite element spaces 
+//-----------------------------------------------------------------------
+  fespace V0h(Th,P0);
+  fespace V1h(Th,P1);
 
 
-  for(int i = 0; i < Th.nv; ++i){
-    if(isBorderNode[i])
-      NodesBorder++;
-    else
-      NodesInside++;
+//-----------------------------------------------------------------------
+// compute nodes for polygon 
+//-----------------------------------------------------------------------   
+  V0h   ThTix = x, ThTiy = y;            // nodes at triangle centres  
+  V1h   ThVix = x, ThViy = y;            // nodes at vertices 
+ 
+  real[int] ThEix(ThNbe), ThEiy(ThNbe);  // nodes at boundary edge centres 
+  for(int e=0; e<ThNbe;++e){
+        ThEix(e) = 0.5*(Th(Th.be(e)[0]).x + Th(Th.be(e)[1]).x);
+        ThEiy(e) = 0.5*(Th(Th.be(e)[0]).y + Th(Th.be(e)[1]).y);
   }
 
 
 
+//-----------------------------------------------------------------------
+// initialize polyhedral mesh
+//-----------------------------------------------------------------------   
+  real[int,int]  PhV(0,0);
+  int [int][int] PhC;
+  { 
+  int PhNn =  ThNt  + ThNnb + ThNbe;
+  int PhNp =  ThNni + ThNbe;
 
-//  printNodeListBelonginToDomain;      // prints only if --debug
+  PhV.resize(PhNn,2);  
+  PhC.resize(PhNp);
+  }
+  
 
 
-//  calculateTotalLocalConnectivity;
+//-----------------------------------------------------------------------  
+//  fill polygon mesh nodes 
+//-----------------------------------------------------------------------
+{
+  int polynodeindex = 0;
 
+  for(int t=0; t<ThNt;++t){
+    PhV(polynodeindex,0) = ThTix[][t];
+    PhV(polynodeindex,1) = ThTiy[][t];
+    polynodeindex++;    
+  }
 
-  printNumberOfAssociatedTria;        // prints only if --debug
-
-
-  initilizePolyMesh;
-
-  PolyNodesVTK(0:Th.nt,0) = ThP0x[];
-  PolyNodesVTK(0:Th.nt,1) = ThP0y[];
-
-  int polynodeindex = Th.nt;
-
-   for(int v=0; v<Th.nv;++v){
-     if(isBorderNode[v]){
-        PolyNodesVTK(polynodeindex,0) = Th(v).x;
-        PolyNodesVTK(polynodeindex,1) = Th(v).y;
+   for(int n=0; n<ThNn;++n){
+     if(isBorderNode[n]){
+        PhV(polynodeindex,0) = ThVix[][n];
+        PhV(polynodeindex,1) = ThViy[][n];
         polynodeindex++;
      }
    }
 
-
-   polynodeindex = Th.nt + Th.nbe;
-
-   real[int] beElemenetNodeX(Th.nbe), beElemenetNodeY(Th.nbe);
-   for(int v=0; v<Th.nbe;++v){
-        beElemenetNodeX(v) = 0.5*(Th(Th.be(v)[0]).x + Th(Th.be(v)[1]).x);
-        beElemenetNodeY(v) = 0.5*(Th(Th.be(v)[0]).y + Th(Th.be(v)[1]).y);
-
-        PolyNodesVTK(polynodeindex,0) = beElemenetNodeX(v);
-        PolyNodesVTK(polynodeindex,1) = beElemenetNodeY(v);
+   for(int be=0; be<ThNbe;++be){
+        PhV(polynodeindex,0) = ThEix(be);
+        PhV(polynodeindex,1) = ThEiy(be);        
         polynodeindex++;
    }
+}
+  
+ 
 
 
-//  computePolyMesh;
+//-----------------------------------------------------------------------
+//  compute polygon mesh cells
+//-----------------------------------------------------------------------
+// assisting macro
+macro vectorPushBack(V, p1, p2, p3)
+        V#x.resize(V#x.n+1);
+        V#y.resize(V#y.n+1);
+        V#Index.resize(V#Index.n+1);
 
-  real[int]  P0x(0), P0y(0), P0nI(0);
-  int indexploy = 0;
-  int indexnbe  = 0;
+        V#x[V#x.n-1]         = p1;
+        V#y[V#y.n-1]         = p2;
+        V#Index[V#Index.n-1] = p3;         
 
-  for(int v=0; v<Th.nv;++v){
+//
 
+{  
+  real[int]  Pix(0), Piy(0) ;
+  int[int]   PiIndex(0)     ;
+  int indexploy = 0         ;
+  int indexnbe  = 0         ;
+  V1h PiNe = 0              ;  
+
+  for(int v=0; v<ThNn; ++v){
+
+    Pix.resize(0); Piy.resize(0); PiIndex.resize(0);
+      
     if(isBorderNode[v]){
-
-      P0x.resize(0); P0y.resize(0); P0nI.resize(0);
-
-
+      
       for(int p=headv[v]; p >=0; p=next[p]){
         int k = p/3;
-        P0x.resize(P0x.n+1);
-        P0y.resize(P0y.n+1);
-        P0nI.resize(P0nI.n+1);
-
-        P0x[P0x.n-1]   = ThP0x[][k];
-        P0y[P0y.n-1]   = ThP0y[][k];
-        P0nI[P0nI.n-1] = k; nAssociateTriangles[][v] = nAssociateTriangles[][v] + 1;
-        cout << " headv --- "<< k << "  ";
-
+        vectorPushBack(Pi, ThTix[][k], ThTiy[][k], k );      
+        PiNe[][v] = PiNe[][v] + 1;
       }
-        cout << "\n\n " <<endl;
 
-        P0x.resize(P0x.n+1);
-        P0y.resize(P0y.n+1);
-        P0nI.resize(P0nI.n+1);
-
-        P0x[P0x.n-1]   = Th(v).x;
-        P0y[P0y.n-1]   = Th(v).y;
-        P0nI[P0nI.n-1] = Th.nt + indexnbe; nAssociateTriangles[][v] = nAssociateTriangles[][v] + 1;
-        indexnbe++;
-        cout << " headless --- "<< Th.nt + indexnbe << "  ";
-        cout << "\n\n " <<endl;
+      vectorPushBack(Pi, ThVix[][v], ThViy[][v], int(ThNt + indexnbe) );     
+      PiNe[][v]      = PiNe[][v] + 1;
 
       for(int p=headvb[v]; p >=0; p=nextb[p]){
         int k = p/2;
-        P0x.resize(P0x.n+1);
-        P0y.resize(P0y.n+1);
-        P0nI.resize(P0nI.n+1);
-
-        P0x[P0x.n-1] = beElemenetNodeX(k);
-        P0y[P0y.n-1] = beElemenetNodeY(k);
-        P0nI[P0nI.n-1] = Th.nt + Th.nbe + k; nAssociateTriangles[][v] = nAssociateTriangles[][v] + 1;
-         cout << " headvb --- "<< Th.nt + Th.nbe + k << "  ";
-
+        vectorPushBack(Pi, ThEix(k), ThEiy(k), int(ThNt + ThNbe + k) );       
+        PiNe[][v] = PiNe[][v] + 1;
       }
 
-             cout << "\n\n " <<endl;
-      pdmtConvexHull(P0x,P0y,P0nI);
+      pdmtConvexHull(Pix,Piy,PiIndex);
 
-      PolyCellsVTK[indexploy].resize(nAssociateTriangles[][v]);
+      PhC[indexploy].resize(PiNe[][v]);
+      for(int kk; kk < PiIndex.n ; kk++)
+        PhC[indexploy][kk] = PiIndex[kk];
 
-      for(int kk; kk < P0nI.n ; kk++)
-        PolyCellsVTK[indexploy][kk] = P0nI[kk];
-
-
-      for(int kk; kk < P0nI.n ; kk++)
-        cout << "POLY vertex " << P0nI[kk] << "  ";
-
-      cout << ""<< endl;
-
-
-      indexploy++;
+      indexploy++;   indexnbe++;
 
     }else{
 
-      P0x.resize(0); P0y.resize(0); P0nI.resize(0);
-
-
-
-      for(int p=headv[v]; p >=0; p=next[p]){
-       cout << "ok ok "<< p << "  " << p/3 <<endl;
-        int k = p/3;
-        P0x.resize(P0x.n+1);
-        P0y.resize(P0y.n+1);
-        P0nI.resize(P0nI.n+1);
-
-        P0x[P0x.n-1] = ThP0x[][k];
-        P0y[P0y.n-1] = ThP0y[][k];
-        P0nI[P0nI.n-1] = k;
-
-        nAssociateTriangles[][v] = nAssociateTriangles[][v] + 1;
-
+      for(int p=headv[v]; p>=0; p=next[p]){
+        int k = p/3;       
+        vectorPushBack(Pi, ThTix[][k], ThTiy[][k], k ); 
+        PiNe[][v] = PiNe[][v] + 1;
       }
-             cout << "\n\n " <<endl;
-      pdmtConvexHull(P0x,P0y,P0nI);
 
-      PolyCellsVTK[indexploy].resize(nAssociateTriangles[][v]);
+      pdmtConvexHull(Pix,Piy,PiIndex);
 
-      for(int kk; kk < P0nI.n ; kk++)
-        PolyCellsVTK[indexploy][kk] = P0nI[kk];
+      PhC[indexploy].resize(PiNe[][v]);
+      for(int kk; kk < PiIndex.n ; kk++)
+        PhC[indexploy][kk] = PiIndex[kk];
 
       indexploy++;
-
     }
   }
-
-  printPolyhedralMeshingStats;        // prints only if --debug
-  savePolyMesh;
-
-   for(int v=0; v<Th.nv;++v){
-     cout << v << " : ";
-     if(isBorderNode[v])
-       for(int p=headvb[v], k; p >=0; p=nextb[p]){
-          k=p/2;
-          cout << k << " " ;
-       }
-       cout << endl;
-   }
-
-
-  for(int k=0; k<Th.nbe;++k){
-          cout << k << " : " <<  Th.be(k)[0] << " " << Th.be(k)[1] << " , label " << Th.be(k).label
-	       <<  " tria  " << int(Th.be(k).Element) << " " << Th.be(k).whoinElement <<  endl;
-  }
-
- cout << " NodesBorder " << NodesBorder << "  NodesInside " << NodesInside << endl;
-
-  int[int] isBorderNodeE;
-   
-
-
-}
-else{
-  mesh Th = loadTheMesh(ThName);
-  buildFeSpacesAndVariables;
-  identifyCellHeadAndNextVerticies;
-  identifyBorderAndNonBorderNodes;
-  calculateTotalLocalConnectivity;
-  initilizePolyMesh;
-  computePolyMesh;
-  savePolyMesh;
 }
 
 
-
+//-----------------------------------------------------------------------
+//  save polygon mesh
+//-----------------------------------------------------------------------
+  PdmtPolyMeshWrite(  ""+ThName+"_poly.vtk", nodes = PhV, cells = PhC );
