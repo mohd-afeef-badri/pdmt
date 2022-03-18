@@ -209,20 +209,56 @@ macro vectorPushBack(V, p1, p2, p3)
        //---- original border nodes ----//
        // problematic for convex-hull  //
        //      TO DO TO DO TO DO       //
-      vectorPushBack(Pi, ThVix[][v], ThViy[][v], int(ThNt + indexnbe) );
-      PiNe[][v]      = PiNe[][v] + 1;
+//      vectorPushBack(Pi, ThVix[][v], ThViy[][v], int(ThNt + indexnbe) );
+//      PiNe[][v]      = PiNe[][v] + 1;
+
+
+      // New procedure for adding the border point //
+      int pointBorder =  int(ThNt + indexnbe);
+      int[int] posVect(2);
+      int count=0;
 
       for(int p=headvb[v]; p >=0; p=nextb[p]){
         int k = p/2;
         vectorPushBack(Pi, ThEix(k), ThEiy(k), int(ThNt + ThNbe + k) );
         PiNe[][v] = PiNe[][v] + 1;
+
+        posVect[count] = int(ThNt + ThNbe + k);
+        count++;
       }
 
       pdmtConvexHull(Pix,Piy,PiIndex);
 
       PhC[indexploy].resize(PiNe[][v]);
-      for(int kk; kk < PiIndex.n ; kk++)
+
+      for(int kk=0; kk < PiIndex.n ; kk++)
         PhC[indexploy][kk] = PiIndex[kk];
+
+
+     // add the boundary point //
+      int pos = 1;
+      count   = 0;
+      int[int] poskk (2);
+
+      for(int kk=0; kk < PiIndex.n  ; kk++){
+        if (PhC[indexploy][kk] == posVect[0] || PhC[indexploy][kk] == posVect[1])
+            {
+            poskk[count] = kk;count++;
+        }
+      }
+
+      if((poskk[1]- poskk[0]) > 1 ){
+          pos = poskk[1] + 2;
+      }else{
+          pos = poskk[1] + 1;
+      }
+
+      PhC[indexploy].resize(PhC[indexploy].n+1);
+
+      for (int i = PhC[indexploy].n -1  ; i >= pos; i--)
+        PhC[indexploy][i] = PhC[indexploy][i - 1];
+
+      PhC[indexploy][pos - 1 ] = pointBorder;
 
       indexploy++;   indexnbe++;
 
