@@ -23,7 +23,7 @@
 *******************************************************************************/
 
 
-include "getARGV.idp";                   // Activate Commandline arguments
+
 
 
 //-----------------------------------------
@@ -41,9 +41,3 @@ bool DEBUG = false;
 //
 // --mesh : to provide external mesh
 //
-
-bool readExtMesh = false;
-string ThName = "Mesh_1";
-       ThName = getARGV( "--mesh" , ThName );
-if(ThName != "Mesh_1")
-     readExtMesh = true;

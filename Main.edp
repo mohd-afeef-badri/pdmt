@@ -43,14 +43,14 @@ include "getARGV.idp";                   // Activate Commandline arguments
 include "meshIO.edp";                    // mesh loading and saving
 
 //----------------------------------------------------------------------
-//       Nomenclature 
+//       Nomenclature
 //----------------------------------------------------------------------
 /*
 
   Th    =  $\mathcal T_h$     = 2D triangular mesh
   Ph    =  $\mathcal P_h$     = 2D polygon mesh
   Ti    =     $\T_i$          = triangular element of mesh Th
-  Pi    =     $\P_i$          = polygon element of mesh Th      
+  Pi    =     $\P_i$          = polygon element of mesh Th
   Name  =       -             = name of something
   Nn    =     $N_n$           = number of nodes
   Nni   =     $N_ni$          = number of nodes inside (!boundary)
@@ -62,18 +62,19 @@ include "meshIO.edp";                    // mesh loading and saving
   V0h   =     $V0_{h}$        = piecewise constant finite element space
   V1h   =     $V1_{h}$        = piecewise linear finite element space
   ThVix = ${\V_x\}_{i=0}^N_n$ = x - coordinate at each vertex of mesh
-  ThViy = ${\V_y\}_{i=0}^N_n$ = y - coordinate at each vertex of mesh    
+  ThViy = ${\V_y\}_{i=0}^N_n$ = y - coordinate at each vertex of mesh
   ThTix = ${\T_x\}_{i=0}^N_t$ = triangle centre node x - coordinate
   ThTiy = ${\T_y\}_{i=0}^N_t$ = triangle centre node y - coordinate
   ThEix = ${\E_x\}_{i=0}^N_be$= edge centre node x - coordinate
   ThEiy = ${\E_y\}_{i=0}^N_be$= edge centre node y - coordinate
-  PhV   = $\{Vx, Vy\}_{i=1}^{N_n}$ = 2D polygon mesh vertices vector  
+  PhV   = $\{Vx, Vy\}_{i=1}^{N_n}$ = 2D polygon mesh vertices vector
 */
 
 
 
+func int run (){
 //-----------------------------------------------------------------------
-// load mesh 
+// load mesh
 //-----------------------------------------------------------------------
  string ThName = getARGV( "--mesh" , "circle" );    // Name of the mesh
  mesh   Th     = loadTheMesh( ThName );             // function in meshIO.edp
@@ -82,44 +83,44 @@ include "meshIO.edp";                    // mesh loading and saving
 //-----------------------------------------------------------------------
 // get mesh info
 //-----------------------------------------------------------------------
- int[int] isBorderNode ,                    // vector to mark boundary node 
+ int[int] isBorderNode ,                    // vector to mark boundary node
           meshInfo     ;                    // info on mesh (Nn, Nt, Nbe,..)
-          
+
  PdmtGetMeshInfo(Th,isBorderNode,meshInfo); // function from pdmt library
- 
- int ThNn  =  meshInfo[0],                  // read nomenclature                  
-     ThNni =  meshInfo[1], 
-     ThNnb =  meshInfo[2],   
-     ThNt  =  meshInfo[3],   
+
+ int ThNn  =  meshInfo[0],                  // read nomenclature
+     ThNni =  meshInfo[1],
+     ThNnb =  meshInfo[2],
+     ThNt  =  meshInfo[3],
      ThNbe =  meshInfo[4];
-     
+
 
 
 //-----------------------------------------------------------------------
-// create search tables 
+// create search tables
 //-----------------------------------------------------------------------
   int[int] headvb, nextb;                      // search table head and next vertex
   PdmtFillSearchTableEdges(Th,headvb,nextb);   // function from pdmt library
-  
+
   int[int] headv, next;                        // search table head and next vertex
   PdmtFillSearchTableTriangles(Th,headv,next); // function from pdmt library
-     
+
 
 
 //-----------------------------------------------------------------------
-// create finite element spaces 
+// create finite element spaces
 //-----------------------------------------------------------------------
   fespace V0h(Th,P0);
   fespace V1h(Th,P1);
 
 
 //-----------------------------------------------------------------------
-// compute nodes for polygon 
-//-----------------------------------------------------------------------   
-  V0h   ThTix = x, ThTiy = y;            // nodes at triangle centres  
-  V1h   ThVix = x, ThViy = y;            // nodes at vertices 
- 
-  real[int] ThEix(ThNbe), ThEiy(ThNbe);  // nodes at boundary edge centres 
+// compute nodes for polygon
+//-----------------------------------------------------------------------
+  V0h   ThTix = x, ThTiy = y;            // nodes at triangle centres
+  V1h   ThVix = x, ThViy = y;            // nodes at vertices
+
+  real[int] ThEix(ThNbe), ThEiy(ThNbe);  // nodes at boundary edge centres
   for(int e=0; e<ThNbe;++e){
         ThEix(e) = 0.5*(Th(Th.be(e)[0]).x + Th(Th.be(e)[1]).x);
         ThEiy(e) = 0.5*(Th(Th.be(e)[0]).y + Th(Th.be(e)[1]).y);
@@ -129,21 +130,21 @@ include "meshIO.edp";                    // mesh loading and saving
 
 //-----------------------------------------------------------------------
 // initialize polyhedral mesh
-//-----------------------------------------------------------------------   
+//-----------------------------------------------------------------------
   real[int,int]  PhV(0,0);
   int [int][int] PhC;
-  { 
+  {
   int PhNn =  ThNt  + ThNnb + ThNbe;
   int PhNp =  ThNni + ThNbe;
 
-  PhV.resize(PhNn,2);  
+  PhV.resize(PhNn,2);
   PhC.resize(PhNp);
   }
-  
 
 
-//-----------------------------------------------------------------------  
-//  fill polygon mesh nodes 
+
+//-----------------------------------------------------------------------
+//  fill polygon mesh nodes
 //-----------------------------------------------------------------------
 {
   int polynodeindex = 0;
@@ -151,25 +152,25 @@ include "meshIO.edp";                    // mesh loading and saving
   for(int t=0; t<ThNt;++t){
     PhV(polynodeindex,0) = ThTix[][t];
     PhV(polynodeindex,1) = ThTiy[][t];
-    polynodeindex++;    
+    polynodeindex++;
   }
 
-   for(int n=0; n<ThNn;++n){
-     if(isBorderNode[n]){
-        PhV(polynodeindex,0) = ThVix[][n];
-        PhV(polynodeindex,1) = ThViy[][n];
-        polynodeindex++;
-     }
-   }
+  for(int n=0; n<ThNn;++n){
+    if(isBorderNode[n]){
+      PhV(polynodeindex,0) = ThVix[][n];
+      PhV(polynodeindex,1) = ThViy[][n];
+      polynodeindex++;
+    }
+  }
 
-   for(int be=0; be<ThNbe;++be){
-        PhV(polynodeindex,0) = ThEix(be);
-        PhV(polynodeindex,1) = ThEiy(be);        
-        polynodeindex++;
-   }
+  for(int be=0; be<ThNbe;++be){
+    PhV(polynodeindex,0) = ThEix(be);
+    PhV(polynodeindex,1) = ThEiy(be);
+    polynodeindex++;
+  }
 }
-  
- 
+
+
 
 
 //-----------------------------------------------------------------------
@@ -177,41 +178,43 @@ include "meshIO.edp";                    // mesh loading and saving
 //-----------------------------------------------------------------------
 // assisting macro
 macro vectorPushBack(V, p1, p2, p3)
-        V#x.resize(V#x.n+1);
-        V#y.resize(V#y.n+1);
-        V#Index.resize(V#Index.n+1);
+   V#x.resize(V#x.n+1);
+   V#y.resize(V#y.n+1);
+   V#Index.resize(V#Index.n+1);
 
-        V#x[V#x.n-1]         = p1;
-        V#y[V#y.n-1]         = p2;
-        V#Index[V#Index.n-1] = p3;         
-
+   V#x[V#x.n-1]         = p1;
+   V#y[V#y.n-1]         = p2;
+   V#Index[V#Index.n-1] = p3;
 //
 
-{  
+{
   real[int]  Pix(0), Piy(0) ;
   int[int]   PiIndex(0)     ;
   int indexploy = 0         ;
   int indexnbe  = 0         ;
-  V1h PiNe = 0              ;  
+  V1h PiNe = 0              ;
 
   for(int v=0; v<ThNn; ++v){
 
     Pix.resize(0); Piy.resize(0); PiIndex.resize(0);
-      
+
     if(isBorderNode[v]){
-      
+
       for(int p=headv[v]; p >=0; p=next[p]){
         int k = p/3;
-        vectorPushBack(Pi, ThTix[][k], ThTiy[][k], k );      
+        vectorPushBack(Pi, ThTix[][k], ThTiy[][k], k );
         PiNe[][v] = PiNe[][v] + 1;
       }
 
-      vectorPushBack(Pi, ThVix[][v], ThViy[][v], int(ThNt + indexnbe) );     
+       //---- original border nodes ----//
+       // problematic for convex-hull  //
+       //      TO DO TO DO TO DO       //
+      vectorPushBack(Pi, ThVix[][v], ThViy[][v], int(ThNt + indexnbe) );
       PiNe[][v]      = PiNe[][v] + 1;
 
       for(int p=headvb[v]; p >=0; p=nextb[p]){
         int k = p/2;
-        vectorPushBack(Pi, ThEix(k), ThEiy(k), int(ThNt + ThNbe + k) );       
+        vectorPushBack(Pi, ThEix(k), ThEiy(k), int(ThNt + ThNbe + k) );
         PiNe[][v] = PiNe[][v] + 1;
       }
 
@@ -226,8 +229,8 @@ macro vectorPushBack(V, p1, p2, p3)
     }else{
 
       for(int p=headv[v]; p>=0; p=next[p]){
-        int k = p/3;       
-        vectorPushBack(Pi, ThTix[][k], ThTiy[][k], k ); 
+        int k = p/3;
+        vectorPushBack(Pi, ThTix[][k], ThTiy[][k], k );
         PiNe[][v] = PiNe[][v] + 1;
       }
 
@@ -247,3 +250,8 @@ macro vectorPushBack(V, p1, p2, p3)
 //  save polygon mesh
 //-----------------------------------------------------------------------
   PdmtPolyMeshWrite(  ""+ThName+"_poly.vtk", nodes = PhV, cells = PhC );
+
+  return 0;
+}
+
+run();

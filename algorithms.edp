@@ -68,25 +68,24 @@ macro identifyBoundaryHeadAndNextVerticiesss()
 //-----------------------------------------
 
 
+
 macro identifyBorderAndNonBorderNodes()
 
 
   varf Gamma(u, v) = on(1,2,3,4, u = 1.0);
 
-  real[int] onGamma(feSpcP1.ndof);
-  onGamma = Gamma(0, feSpcP1, tgv = -1);
+  real[int] onGamma(V1h.ndof);
+  onGamma = Gamma(0, V1h, tgv = -1);
 
   int NodesInside = 0, NodesBorder = 0;
 
-  for(int i = 0; i < feSpcP1.ndof; ++i){
+  for(int i = 0; i < V1h.ndof; ++i){
     if(abs(onGamma[i]-1.0) < 0.1)
       NodesBorder++;
     else
       NodesInside++;
   }
 //
-
-
 
 macro calculateTotalLocalConnectivity()
 
@@ -106,19 +105,15 @@ macro calculateTotalLocalConnectivity()
 
 macro initilizePolyMesh()
 
-  int PolyNodesNumber =  Th.nt + Th.nbe + Th.nbe;
-  real[int,int] PolyNodesVTK (PolyNodesNumber,2);
+  int PolyNodesNumber =  Th.nt + NodesBorder + Th.nbe;
+  real[int,int] PolyNodesVTK(0,0);
+   PolyNodesVTK.resize(PolyNodesNumber,2);
 
   int PolyCellNumber =  NodesInside + Th.nbe;
   int [int][int] PolyCellsVTK;
   PolyCellsVTK.resize(PolyCellNumber);
-
 //
 
-/*
-  PolyNodesVTK(0:Th.nt,0) = ThP0x[];
-  PolyNodesVTK(0:Th.nt,1) = ThP0y[];
- */ 
 macro computePolyMesh(){
 
   real[int]  P0x(0), P0y(0), P0nI(0);

@@ -78,7 +78,7 @@ func mesh loadTheMesh(string meshName){
       
     if( meshName == "circle" ){
       border a(t=0, 2*pi){x=cos(t); y=sin(t); label=1;}
-      Th2D = buildmesh(a(20));
+      Th2D = buildmesh(a(100));
     }
 
     return Th2D;

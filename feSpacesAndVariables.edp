@@ -22,11 +22,16 @@
 
 *******************************************************************************/
 
-macro buildFeSpacesAndVariables()
-
-  fespace feSpcP0(Th,P0);
-          feSpcP0 ThP0x = x, ThP0y = y ;
-
-  fespace feSpcP1(Th,P1);
-          feSpcP1 nAssociateTriangles = 0;
+//------------------------------------------------------------------------------------
+// buildFeSpacesAndVariables: will build two finite element spaces  V0h and V1h
+//      defined below. And will define finite element variables ThP0x, ThP0y in
+//      V0h and nPolyEdges in V1h. 
 //
+// V0h(Th,P0):
+//        $V0_{h} = \left\{ v \in L^2(]0,1[^2) |\; \forall K \in \mathcal{T}_{h}\quad v_{|K} \in P_{0} \right\}$
+//        $\P0 = \left\{ v \in L^2(\Omega) \left|\; \textrm{for all }K \in \mathcal{T}_{h}\;\;\textrm{there is }\alpha_{K}\in \R : \;\; v_{|K} = \alpha_{K } \right.\right\}$
+//
+// V1h(Th,P1):
+//        $V1_{h} = \left\{ v \in H^{1}(]0,1[^2) |\; \forall K \in \mathcal{T}_{h}\quad v_{|K} \in P_{1} \right\}$
+//        $\P1 = \left\{ v \in H^{1}(\Omega) \left|\; \forall K \in \mathcal{T}_{h},\ v_{|K} \in P_{1} \right.\right\}$
+//------------------------------------------------------------------------------------
