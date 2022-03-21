@@ -22,7 +22,8 @@ pdmt.$(SO_SUFFIX): pdmt.cpp pdmtFunctions.hpp convexHull.hpp polyMeshWrite.hpp
 	@echo ""
 
 medCoupling.$(SO_SUFFIX): medCoupling.cpp
-	$(FFCXX) -auto -mpi med.cpp -I$(MEDCOUPLING_ROOT_DIR)/include -I$(MEDFILE_ROOT_DIR)/include -I$(HDF5_ROOT_DIR)/include -L$(MEDCOUPLING_ROOT_DIR)/lib -lmedloader -lmedcoupling -linterpkernel -lmedcouplingremapper
+	export LD_LIBRARY_PATH=$(MEDFILE_ROOT_DIR)/lib:$(HDF5_ROOT_DIR)/lib:$(MEDCOUPLING_ROOT_DIR)/lib
+	$(FFCXX) -auto -mpi medCoupling.cpp -I$(MEDCOUPLING_ROOT_DIR)/include -I$(MEDFILE_ROOT_DIR)/include -I$(HDF5_ROOT_DIR)/include -L$(MEDCOUPLING_ROOT_DIR)/lib -lmedloader -lmedcoupling -linterpkernel -lmedcouplingremapper
 	@echo ""
 
 install-exec-local:
