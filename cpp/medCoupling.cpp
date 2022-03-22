@@ -32,6 +32,7 @@
 using namespace std;
 using namespace MEDCoupling;
 
+/*
 int testRun()
 {
   double targetCoords[24]={
@@ -54,6 +55,83 @@ int testRun()
   myCoords->setInfoOnComponent(0,"toto [m]");
   myCoords->setInfoOnComponent(1,"energie [kW]");
   std::copy(targetCoords,targetCoords+24,myCoords->getPointer());
+  targetMesh->setCoords(myCoords);
+  myCoords->decrRef();
+  WriteUMesh("file2.med",targetMesh,true);
+  return 1;
+}
+*/
+
+int testRun()
+{
+  double targetCoords[48]={
+0.333333	,0.166667,
+0.166667	,0.333333,
+0.833333	,0.166667,
+0.666667	,0.333333,
+0.333333	,0.666667,
+0.166667	,0.833333,
+0.833333	,0.666667,
+0.666667	,0.833333,
+0	,0,
+0.5	,0,
+1	,0,
+0	,0.5,
+1	,0.5,
+0	,1,
+0.5	,1,
+1	,1,
+0.25	,0,
+0.75	,0,
+1	,0.25,
+1	,0.75,
+0.25	,1,
+0.75	,1,
+0	,0.25,
+0	,0.75
+  };
+  mcIdType targetConn[48]={
+/*
+5 16 0 1 22 8
+6 16 9 17 2 3 0
+4 17 10 18 2
+6 22 1 4 5 23 11
+6 0 3 6 7 4 1
+6 2 18 12 19 6 3
+4 23 5 20 13
+6 4 7 21 14 20 5
+5 6 19 15 21 7
+*/
+16, 0,  1,  22, 8,
+16, 9,  17, 2,  3,  0,
+17, 10, 18, 2,
+22, 1,  4,  5,  23, 11,
+0 ,3 , 6  ,7 , 4, 1,
+2 ,18, 12 ,19, 6, 3,
+23,5,  20 ,13,
+4 ,7 , 21 ,14 ,20, 5,
+6 ,19, 15 ,21, 7
+                 };
+  MEDCouplingUMesh *targetMesh=MEDCouplingUMesh::New();
+  targetMesh->setMeshDimension(2);
+  targetMesh->allocateCells(9);   // total number of cells
+  targetMesh->setName("2DPolyMesh_2");
+  targetMesh->insertNextCell(INTERP_KERNEL::NORM_POLYGON,5,targetConn);      // comes from connectivity
+  targetMesh->insertNextCell(INTERP_KERNEL::NORM_POLYGON,6,targetConn+5);
+  targetMesh->insertNextCell(INTERP_KERNEL::NORM_POLYGON,4,targetConn+11);
+  targetMesh->insertNextCell(INTERP_KERNEL::NORM_POLYGON,6,targetConn+15);
+  targetMesh->insertNextCell(INTERP_KERNEL::NORM_POLYGON,6,targetConn+21);
+  targetMesh->insertNextCell(INTERP_KERNEL::NORM_POLYGON,6,targetConn+27);
+  targetMesh->insertNextCell(INTERP_KERNEL::NORM_POLYGON,4,targetConn+33);
+  targetMesh->insertNextCell(INTERP_KERNEL::NORM_POLYGON,6,targetConn+37);
+  targetMesh->insertNextCell(INTERP_KERNEL::NORM_POLYGON,5,targetConn+43);
+
+  targetMesh->finishInsertingCells();
+  DataArrayDouble *myCoords=DataArrayDouble::New();
+  myCoords->alloc(24,2); // tottal number of points
+  myCoords->setInfoOnComponent(0,"x [m]");
+  myCoords->setInfoOnComponent(1,"y [m]");
+  std::copy(targetCoords,targetCoords+48,myCoords->getPointer());
   targetMesh->setCoords(myCoords);
   myCoords->decrRef();
   WriteUMesh("file2.med",targetMesh,true);
