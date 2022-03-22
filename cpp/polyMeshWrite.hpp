@@ -23,6 +23,16 @@
 #include <stack>
 #include <stdlib.h>
 
+#ifdef DMEDCOUPLING
+#include "MEDLoader.hxx"
+#include "MEDLoaderBase.hxx"
+#include "MEDCouplingUMesh.hxx"
+#include "MEDCouplingFieldDouble.hxx"
+#include "MEDCouplingFieldFloat.hxx"
+#include "MEDCouplingMemArray.hxx"
+using namespace MEDCoupling;
+#endif
+
 using namespace std;
 
 
@@ -94,72 +104,135 @@ AnyType polyMeshWrite_Op<K>::operator()(Stack stack) const
      std::cout << "------------------------------------------------------ " <<  std::endl;
     }
 
-    ofstream polyWrite;
-    polyWrite.open(*inputfile);
 
-    //------------ Write header ----------------//
-    
-    polyWrite << "# vtk DataFile Version 2.0\n"
-              << "Unstructured Grid PDMT\n"
-              << "ASCII\n"
-              << "DATASET UNSTRUCTURED_GRID\n\n";
+    std::string fullFileName(*inputfile);
+
+    //std::size_t writeVtkFile = (fullFileName).find(".vtk");
+    //std::size_t writeMedFile = (fullFileName).find(".vtk");
+
+    if ( (fullFileName).find(".vtk") != std::string::npos){
+
+      ofstream polyWrite;
+      polyWrite.open(*inputfile);
+
+      //------------ Write header ----------------//
+
+      polyWrite << "# vtk DataFile Version 2.0\n"
+                << "Unstructured Grid PDMT\n"
+                << "ASCII\n"
+                << "DATASET UNSTRUCTURED_GRID\n\n";
 
 
-    //------------ Write nodes ----------------//
-    
-    if(verbosity){
-     std::cout << "------------------------------------------------------ " <<  std::endl;
-     std::cout << "PMDT NODES IN POLYMESH " << nodesPoly->N()  << std::endl;
-     std::cout << "------------------------------------------------------ " <<  std::endl;
+      //------------ Write nodes ----------------//
+
+      if(verbosity){
+       std::cout << "------------------------------------------------------ " <<  std::endl;
+       std::cout << "PMDT NODES IN POLYMESH " << nodesPoly->N()  << std::endl;
+       std::cout << "------------------------------------------------------ " <<  std::endl;
+      }
+
+      {
+      int TotalNodes = nodesPoly->N();
+
+      polyWrite << "POINTS " << TotalNodes << " float\n";
+      for(int i=0; i < TotalNodes; i++)
+        polyWrite << (*nodesPoly)(i,0) << "\t" << (*nodesPoly)(i,1) << "\t 0\n";
+      }
+
+      //------------ Write cells ----------------//
+      if(verbosity){
+       std::cout << "------------------------------------------------------ " <<  std::endl;
+       std::cout << "PMDT CELS IN POLYMESH " << CellsPoly->N()  << std::endl;
+       //std::cout << "PMDT CELS IN POLYMESH " << (*CellsPoly)(0).N()  << std::endl;
+       //std::cout << "PMDT CELS IN POLYMESH " << (*CellsPoly)(0)(0)  << std::endl;
+       std::cout << "------------------------------------------------------ " <<  std::endl;
+      }
+
+      {
+        int TotalCells = CellsPoly->N();
+        int TotalCellConnectivity = 0;
+
+        for(int i=0; i < TotalCells; i++)
+           TotalCellConnectivity += (*CellsPoly)(i).N() + 1;
+
+        polyWrite << "\n";
+        polyWrite << "CELLS " << TotalCells << "\t" << TotalCellConnectivity;
+        polyWrite << "\n";
+
+        for(int i=0; i < TotalCells; i++){
+          polyWrite << (*CellsPoly)(i).N() << " ";
+          for(int j=0; j < (*CellsPoly)(i).N(); j++){
+            polyWrite << (*CellsPoly)(i)(j) << " ";
+          }
+          polyWrite << "\n" ;
+        }
+      }
+
+      //------------ Write cell types -----------------------//
+      {
+        int TotalCells = CellsPoly->N();
+        polyWrite << "\n";
+        polyWrite << "\n";
+        polyWrite << "CELL_TYPES " << CellsPoly->N() << " " ;
+        polyWrite << "\n";
+        for(int i=0; i < TotalCells; i++)
+          polyWrite << "7" << "\n";
+      }
+
     }
 
+
+#ifdef DMEDCOUPLING
+    if ( (fullFileName).find(".med") != std::string::npos)
     {
-    int TotalNodes = nodesPoly->N();
 
-    polyWrite << "POINTS " << TotalNodes << " float\n";
-    for(int i=0; i < TotalNodes; i++)
-      polyWrite << (*nodesPoly)(i,0) << "\t" << (*nodesPoly)(i,1) << "\t 0\n";
-    }
+      int TotalNodes = nodesPoly->N();
+      double targetCoords[TotalNodes*2];
+      for(int i=0; i < TotalNodes; i++){
+        targetCoords[i*2]=(*nodesPoly)(i,0) ;
+        targetCoords[i*2+1]=(*nodesPoly)(i,1);
+      }
 
-    //------------ Write cells ----------------//
-    if(verbosity){
-     std::cout << "------------------------------------------------------ " <<  std::endl;
-     std::cout << "PMDT CELS IN POLYMESH " << CellsPoly->N()  << std::endl;
-     //std::cout << "PMDT CELS IN POLYMESH " << (*CellsPoly)(0).N()  << std::endl;
-     //std::cout << "PMDT CELS IN POLYMESH " << (*CellsPoly)(0)(0)  << std::endl;
-     std::cout << "------------------------------------------------------ " <<  std::endl;
-    }
 
-    {
       int TotalCells = CellsPoly->N();
       int TotalCellConnectivity = 0;
 
       for(int i=0; i < TotalCells; i++)
-           TotalCellConnectivity += (*CellsPoly)(i).N() + 1;
+        TotalCellConnectivity += (*CellsPoly)(i).N() + 1;
 
-      polyWrite << "\n";
-      polyWrite << "CELLS " << TotalCells << "\t" << TotalCellConnectivity;
-      polyWrite << "\n";
+      mcIdType targetConn[TotalCellConnectivity-TotalCells];
 
+      int count=0;
       for(int i=0; i < TotalCells; i++){
-        polyWrite << (*CellsPoly)(i).N() << " ";
         for(int j=0; j < (*CellsPoly)(i).N(); j++){
-          polyWrite << (*CellsPoly)(i)(j) << " ";
+          targetConn[count]= (*CellsPoly)(i)(j);
+          count++;
         }
-        polyWrite << "\n" ;
       }
-    }
 
-    //------------ Write cell types -----------------------//
-    {
-      int TotalCells = CellsPoly->N();
-      polyWrite << "\n";
-      polyWrite << "\n";
-      polyWrite << "CELL_TYPES " << CellsPoly->N() << " " ;
-      polyWrite << "\n";
-      for(int i=0; i < TotalCells; i++)
-        polyWrite << "7" << "\n";
-    }
+      MEDCouplingUMesh *targetMesh=MEDCouplingUMesh::New();
+      targetMesh->setMeshDimension(2);
+      targetMesh->allocateCells(TotalCells);
+      targetMesh->setName("2DPolyMesh_2");
+
+      count=0;
+      for(int i=0; i < TotalCells; i++){
+        targetMesh->insertNextCell(INTERP_KERNEL::NORM_POLYGON,(*CellsPoly)(i).N(),targetConn+count);
+        count += (*CellsPoly)(i).N();
+      }
+
+      targetMesh->finishInsertingCells();
+      DataArrayDouble *myCoords=DataArrayDouble::New();
+      myCoords->alloc(TotalNodes,2);
+      myCoords->setInfoOnComponent(0,"x [m]");
+      myCoords->setInfoOnComponent(1,"y [m]");
+      std::copy(targetCoords,targetCoords+(TotalNodes*2),myCoords->getPointer());
+      targetMesh->setCoords(myCoords);
+      myCoords->decrRef();
+      WriteUMesh(*inputfile,targetMesh,true);
+
+      }
+#endif
 
     return 0L;
 };
