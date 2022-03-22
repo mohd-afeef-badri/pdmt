@@ -38,6 +38,7 @@
 
 
 load    "./cpp/pdmt";                    // Load pdmt library
+load    "PETSc"
 
 include "getARGV.idp";                   // Activate Commandline arguments
 include "meshIO.edp";                    // mesh loading and saving
@@ -70,7 +71,8 @@ include "meshIO.edp";                    // mesh loading and saving
   PhV   = $\{Vx, Vy\}_{i=1}^{N_n}$ = 2D polygon mesh vertices vector
 */
 
-
+    macro dimension()2// EOM
+    include "macro_ddm.idp"
 
 func int run (){
 //-----------------------------------------------------------------------
@@ -78,7 +80,7 @@ func int run (){
 //-----------------------------------------------------------------------
  string ThName = getARGV( "--mesh" , "circle" );    // Name of the mesh
  mesh   Th     = loadTheMesh( ThName );             // function in meshIO.edp
-
+ buildDmesh(Th);
 
 //-----------------------------------------------------------------------
 // get mesh info
@@ -285,7 +287,7 @@ macro vectorPushBack(V, p1, p2, p3)
 //-----------------------------------------------------------------------
 //  save polygon mesh
 //-----------------------------------------------------------------------
-  PdmtPolyMeshWrite(  ""+ThName+"_poly.vtk", nodes = PhV, cells = PhC );
+  PdmtPolyMeshWrite(  ""+ThName+"_poly_"+mpirank+".vtk", nodes = PhV, cells = PhC );
 
   return 0;
 }
