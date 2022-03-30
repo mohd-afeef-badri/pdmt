@@ -23,7 +23,7 @@
 #include <stack>
 #include <stdlib.h>
 
-#ifdef DMEDCOUPLING
+#ifdef MEDCOUPLING
 #include "MEDLoader.hxx"
 #include "MEDLoaderBase.hxx"
 #include "MEDCouplingUMesh.hxx"
@@ -42,7 +42,7 @@ class polyMeshWrite_Op : public E_F0mps
 public:
     Expression filename			                ;
 
-    static const int n_name_param = 2		        ;
+    static const int n_name_param = 3		        ;
     static basicAC_F0::name_and_type name_param[]	;
     Expression nargs[n_name_param]			;
 
@@ -64,7 +64,8 @@ template<class K>
 basicAC_F0::name_and_type polyMeshWrite_Op<K>::name_param[] =
 {
     {"nodes"   , &typeid(KNM<double>*)},
-    {"cells"   , &typeid(KN<KN<long>>*)}
+    {"cells"   , &typeid(KN<KN<long>>*)},
+    {"edges"   , &typeid(KN<KN<long>>*)}
 };
 
 
@@ -91,12 +92,16 @@ AnyType polyMeshWrite_Op<K>::operator()(Stack stack) const
 
     KNM < double > *nodesPoly = 0;
     KN<KN<long>>   *CellsPoly = 0;
+    KN<KN<long>>   *EdgesPoly = 0;
 
     if(nargs[0])
       nodesPoly = GetAny< KNM< double > * >((*nargs[0])(stack));
 
     if(nargs[1])
      CellsPoly = GetAny< KN<KN<long>> * >((*nargs[1])(stack));
+
+    if(nargs[2])
+     EdgesPoly = GetAny< KN<KN<long>> * >((*nargs[2])(stack));
 
     if(verbosity){
      std::cout << "------------------------------------------------------ " <<  std::endl;
@@ -152,11 +157,25 @@ AnyType polyMeshWrite_Op<K>::operator()(Stack stack) const
         int TotalCells = CellsPoly->N();
         int TotalCellConnectivity = 0;
 
+        int TotalVTKConnectionList = TotalCells;
+
         for(int i=0; i < TotalCells; i++)
            TotalCellConnectivity += (*CellsPoly)(i).N() + 1;
 
+        if(nargs[2]){
+        int TotalEdges = EdgesPoly->N();
+        for(int i=0; i < TotalEdges; i++)
+           TotalCellConnectivity += (*EdgesPoly)(i).N() + 1;
+
+        TotalVTKConnectionList +=  TotalEdges;
+        }
+
+
+
+
+
         polyWrite << "\n";
-        polyWrite << "CELLS " << TotalCells << "\t" << TotalCellConnectivity;
+        polyWrite << "CELLS " << TotalVTKConnectionList << "\t" << TotalCellConnectivity;
         polyWrite << "\n";
 
         for(int i=0; i < TotalCells; i++){
@@ -166,23 +185,41 @@ AnyType polyMeshWrite_Op<K>::operator()(Stack stack) const
           }
           polyWrite << "\n" ;
         }
+
+        if(nargs[2]){
+        for(int i=0; i < EdgesPoly->N(); i++){
+          polyWrite << (*EdgesPoly)(i).N() << " ";
+          for(int j=0; j < (*EdgesPoly)(i).N(); j++){
+            polyWrite << (*EdgesPoly)(i)(j) << " ";
+          }
+          polyWrite << "\n" ;
+        }
+        }
       }
 
       //------------ Write cell types -----------------------//
       {
         int TotalCells = CellsPoly->N();
+
+        if(nargs[2])
+           TotalCells += EdgesPoly->N();
+
         polyWrite << "\n";
         polyWrite << "\n";
-        polyWrite << "CELL_TYPES " << CellsPoly->N() << " " ;
+        polyWrite << "CELL_TYPES " << TotalCells << " " ;
         polyWrite << "\n";
-        for(int i=0; i < TotalCells; i++)
+        for(int i=0; i < CellsPoly->N(); i++)
           polyWrite << "7" << "\n";
+
+        if(nargs[2])
+        for(int i=0; i < EdgesPoly->N(); i++)
+          polyWrite << "3" << "\n";
       }
 
     }
 
 
-#ifdef DMEDCOUPLING
+#ifdef MEDCOUPLING
     if ( (fullFileName).find(".med") != std::string::npos)
     {
 
@@ -192,7 +229,6 @@ AnyType polyMeshWrite_Op<K>::operator()(Stack stack) const
         targetCoords[i*2]=(*nodesPoly)(i,0) ;
         targetCoords[i*2+1]=(*nodesPoly)(i,1);
       }
-
 
       int TotalCells = CellsPoly->N();
       int TotalCellConnectivity = 0;

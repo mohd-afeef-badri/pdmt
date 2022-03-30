@@ -135,12 +135,15 @@ func int run (){
 //-----------------------------------------------------------------------
   real[int,int]  PhV(0,0);
   int [int][int] PhC;
+  int [int][int] PhE;
   {
   int PhNn =  ThNt  + ThNnb + ThNbe;
   int PhNp =  ThNni + ThNbe;
+  int PhNe =  ThNbe*2;
 
   PhV.resize(PhNn,2);
   PhC.resize(PhNp);
+  PhE.resize(PhNe);
   }
 
 
@@ -192,6 +195,7 @@ macro vectorPushBack(V, p1, p2, p3)
 {
   real[int]  Pix(0), Piy(0) ;
   int[int]   PiIndex(0)     ;
+  int indexedge = 0         ;
   int indexploy = 0         ;
   int indexnbe  = 0         ;
   V1h PiNe = 0              ;
@@ -262,7 +266,19 @@ macro vectorPushBack(V, p1, p2, p3)
 
       PhC[indexploy][pos - 1 ] = pointBorder;
 
-      indexploy++;   indexnbe++;
+      PhE[indexedge].resize(2);
+      PhE[indexedge][0] = posVect[0];
+      PhE[indexedge][1] = pointBorder;
+      indexedge++;
+
+      PhE[indexedge].resize(2);
+      PhE[indexedge][0] = pointBorder;
+      PhE[indexedge][1] = posVect[1];
+      indexedge++;
+
+
+      indexploy++;
+      indexnbe++;
 
     }else{
 
@@ -287,7 +303,16 @@ macro vectorPushBack(V, p1, p2, p3)
 //-----------------------------------------------------------------------
 //  save polygon mesh
 //-----------------------------------------------------------------------
-  PdmtPolyMeshWrite(  ""+ThName+"_poly_"+mpirank+".vtk", nodes = PhV, cells = PhC );
+  PdmtPolyMeshWrite(  ""+ThName+"_poly_"+mpirank+".vtk",
+                      nodes = PhV,
+                      cells = PhC
+                   );
+
+  PdmtPolyMeshWrite(  ""+ThName+"_poly_with_edges_"+mpirank+".vtk",
+                      nodes = PhV,
+                      cells = PhC,
+                      edges = PhE
+                   );
 
   return 0;
 }
