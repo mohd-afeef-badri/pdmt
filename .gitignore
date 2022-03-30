@@ -4,3 +4,6 @@
 ## Not allowed files ##
 images/*
 test-meshes/*
+
+## meshes ##
+*.med
