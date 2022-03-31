@@ -239,16 +239,21 @@ AnyType polyMeshWrite_Op<K>::operator()(Stack stack) const
         polyWrite << "SCALARS label float 1 \n";
         polyWrite << "LOOKUP_TABLE CellColors ";
         polyWrite << "\n";
-        for(int i=0; i < CellsPoly->N(); i++)
-          polyWrite << "0" << "\n";
+
+        if(!withLabel)
+          for(int i=0; i < CellsPoly->N(); i++)
+            polyWrite << "0" << "\n";
+        else
+          for(int i=0; i < CellsPoly->N(); i++)
+            polyWrite << (*LabelsPoly)(i) << "\n";
 
         if(withEdges && !withLabel)
-        for(int i=0; i < EdgesPoly->N(); i++)
-          polyWrite << "1" << "\n";
+          for(int i=0; i < EdgesPoly->N(); i++)
+            polyWrite << "1" << "\n";
 
         if(withEdges && withLabel)
-        for(int i=0; i < EdgesPoly->N(); i++)
-          polyWrite << (*LabelsPoly)(i)  << "\n";
+          for(int i = CellsPoly->N(); i < EdgesPoly->N() + CellsPoly->N(); i++)
+            polyWrite << (*LabelsPoly)(i)  << "\n";
       }
     }
 

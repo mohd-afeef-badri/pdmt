@@ -75,12 +75,21 @@ include "meshIO.edp";                    // mesh loading and saving
     include "macro_ddm.idp"
 
 func int run (){
+
 //-----------------------------------------------------------------------
 // load mesh
 //-----------------------------------------------------------------------
  string ThName = getARGV( "--mesh" , "circle" );    // Name of the mesh
  mesh   Th     = loadTheMesh( ThName );             // function in meshIO.edp
- buildDmesh(Th);
+
+
+
+//-----------------------------------------------------------------------
+// build distributed mesh (ParMetis is used)
+//-----------------------------------------------------------------------
+ buildDmesh(Th);                           // partition the mesh
+
+
 
 //-----------------------------------------------------------------------
 // get mesh info
@@ -90,11 +99,11 @@ func int run (){
 
  PdmtGetMeshInfo(Th,isBorderNode,meshInfo); // function from pdmt library
 
- int ThNn  =  meshInfo[0],                  // read nomenclature
-     ThNni =  meshInfo[1],
-     ThNnb =  meshInfo[2],
-     ThNt  =  meshInfo[3],
-     ThNbe =  meshInfo[4];
+ int ThNn  =  meshInfo[0],                  // # nodes
+     ThNni =  meshInfo[1],                  // # inside nodes
+     ThNnb =  meshInfo[2],                  // # boundary nodes
+     ThNt  =  meshInfo[3],                  // # triangles
+     ThNbe =  meshInfo[4];                  // # boundary edges
 
 
 
@@ -116,6 +125,7 @@ func int run (){
   fespace V1h(Th,P1);
 
 
+
 //-----------------------------------------------------------------------
 // compute nodes/labels for polygons
 //-----------------------------------------------------------------------
@@ -124,10 +134,12 @@ func int run (){
 
   real[int] ThEix(ThNbe), ThEiy(ThNbe);  // nodes at boundary edge centres
   int[int]  ThEiLab(ThNbe);              // labels of edges
+
+  // build barry centre nodes //
   for(int e=0; e<ThNbe;++e){
-        ThEix(e) = 0.5*(Th(Th.be(e)[0]).x + Th(Th.be(e)[1]).x);
-        ThEiy(e) = 0.5*(Th(Th.be(e)[0]).y + Th(Th.be(e)[1]).y);
-        ThEiLab(e) = Th.be(e).label;
+    ThEix(e) = 0.5*(Th(Th.be(e)[0]).x + Th(Th.be(e)[1]).x); // x coordinate
+    ThEiy(e) = 0.5*(Th(Th.be(e)[0]).y + Th(Th.be(e)[1]).y); // y coordinate
+    ThEiLab(e) = Th.be(e).label;                            // label on edge
   }
 
 
@@ -139,7 +151,8 @@ func int run (){
   int [int]      PhELabels;
   int [int][int] PhC;
   int [int][int] PhE;
-  {
+
+{
   int PhNn =  ThNt  + ThNnb + ThNbe;
   int PhNp =  ThNni + ThNbe;
   int PhNe =  ThNbe*2;
@@ -147,8 +160,8 @@ func int run (){
   PhV.resize(PhNn,2);
   PhC.resize(PhNp);
   PhE.resize(PhNe);
-  PhELabels.resize(PhNe);
-  }
+  PhELabels.resize(PhNp + PhNe);
+}
 
 
 
@@ -178,7 +191,6 @@ func int run (){
     polynodeindex++;
   }
 }
-
 
 
 
@@ -214,6 +226,7 @@ macro vectorPushBack(V, p1, p2, p3)
         int k = p/3;
         vectorPushBack(Pi, ThTix[][k], ThTiy[][k], k );
         PiNe[][v] = PiNe[][v] + 1;
+        PhELabels[indexploy] = Th[k].region;
       }
 
        //---- original border nodes ----//
@@ -275,13 +288,13 @@ macro vectorPushBack(V, p1, p2, p3)
       PhE[indexedge].resize(2);
       PhE[indexedge][0] = posVect[0];
       PhE[indexedge][1] = pointBorder;
-      PhELabels[indexedge] = edgeLocalLab[0];
+      PhELabels[ThNni + ThNbe + indexedge] = edgeLocalLab[0];
       indexedge++;
 
       PhE[indexedge].resize(2);
       PhE[indexedge][0] = pointBorder;
       PhE[indexedge][1] = posVect[1];
-      PhELabels[indexedge] = edgeLocalLab[1];
+      PhELabels[ThNni + ThNbe + indexedge] = edgeLocalLab[1];
       indexedge++;
 
       indexploy++;
@@ -293,6 +306,7 @@ macro vectorPushBack(V, p1, p2, p3)
         int k = p/3;
         vectorPushBack(Pi, ThTix[][k], ThTiy[][k], k );
         PiNe[][v] = PiNe[][v] + 1;
+        PhELabels[indexploy] = Th[k].region;
       }
 
       pdmtConvexHull(Pix,Piy,PiIndex);
