@@ -42,7 +42,7 @@ class polyMeshWrite_Op : public E_F0mps
 public:
     Expression filename			                ;
 
-    static const int n_name_param = 3		        ;
+    static const int n_name_param = 4		        ;
     static basicAC_F0::name_and_type name_param[]	;
     Expression nargs[n_name_param]			;
 
@@ -65,7 +65,8 @@ basicAC_F0::name_and_type polyMeshWrite_Op<K>::name_param[] =
 {
     {"nodes"   , &typeid(KNM<double>*)},
     {"cells"   , &typeid(KN<KN<long>>*)},
-    {"edges"   , &typeid(KN<KN<long>>*)}
+    {"edges"   , &typeid(KN<KN<long>>*)},
+    {"labels"  , &typeid(KN<long>*)}
 };
 
 
@@ -93,6 +94,11 @@ AnyType polyMeshWrite_Op<K>::operator()(Stack stack) const
     KNM < double > *nodesPoly = 0;
     KN<KN<long>>   *CellsPoly = 0;
     KN<KN<long>>   *EdgesPoly = 0;
+    KN<long>       *LabelsPoly= 0;
+
+    bool withEdges = false;
+    bool withLabel = false;
+
 
     if(nargs[0])
       nodesPoly = GetAny< KNM< double > * >((*nargs[0])(stack));
@@ -100,8 +106,15 @@ AnyType polyMeshWrite_Op<K>::operator()(Stack stack) const
     if(nargs[1])
      CellsPoly = GetAny< KN<KN<long>> * >((*nargs[1])(stack));
 
-    if(nargs[2])
+    if(nargs[2]){
      EdgesPoly = GetAny< KN<KN<long>> * >((*nargs[2])(stack));
+     withEdges = true;
+    }
+
+    if(nargs[3]){
+     LabelsPoly = GetAny< KN<long> * >((*nargs[3])(stack));
+     withLabel = true;
+    }
 
     if(verbosity){
      std::cout << "------------------------------------------------------ " <<  std::endl;
@@ -162,17 +175,13 @@ AnyType polyMeshWrite_Op<K>::operator()(Stack stack) const
         for(int i=0; i < TotalCells; i++)
            TotalCellConnectivity += (*CellsPoly)(i).N() + 1;
 
-        if(nargs[2]){
+        if(withEdges){
         int TotalEdges = EdgesPoly->N();
         for(int i=0; i < TotalEdges; i++)
            TotalCellConnectivity += (*EdgesPoly)(i).N() + 1;
 
         TotalVTKConnectionList +=  TotalEdges;
         }
-
-
-
-
 
         polyWrite << "\n";
         polyWrite << "CELLS " << TotalVTKConnectionList << "\t" << TotalCellConnectivity;
@@ -186,7 +195,7 @@ AnyType polyMeshWrite_Op<K>::operator()(Stack stack) const
           polyWrite << "\n" ;
         }
 
-        if(nargs[2]){
+        if(withEdges){
         for(int i=0; i < EdgesPoly->N(); i++){
           polyWrite << (*EdgesPoly)(i).N() << " ";
           for(int j=0; j < (*EdgesPoly)(i).N(); j++){
@@ -201,7 +210,7 @@ AnyType polyMeshWrite_Op<K>::operator()(Stack stack) const
       {
         int TotalCells = CellsPoly->N();
 
-        if(nargs[2])
+        if(withEdges)
            TotalCells += EdgesPoly->N();
 
         polyWrite << "\n";
@@ -211,7 +220,7 @@ AnyType polyMeshWrite_Op<K>::operator()(Stack stack) const
         for(int i=0; i < CellsPoly->N(); i++)
           polyWrite << "7" << "\n";
 
-        if(nargs[2])
+        if(withEdges)
         for(int i=0; i < EdgesPoly->N(); i++)
           polyWrite << "3" << "\n";
       }
@@ -221,21 +230,25 @@ AnyType polyMeshWrite_Op<K>::operator()(Stack stack) const
       {
         int TotalCells = CellsPoly->N();
 
-        if(nargs[2])
+        if(withEdges)
            TotalCells += EdgesPoly->N();
 
         polyWrite << "\n";
         polyWrite << "\n";
         polyWrite << "CELL_DATA " << TotalCells << " \n" ;
-        polyWrite << "SCALARS label float 1 ";
+        polyWrite << "SCALARS label float 1 \n";
         polyWrite << "LOOKUP_TABLE CellColors ";
         polyWrite << "\n";
         for(int i=0; i < CellsPoly->N(); i++)
           polyWrite << "0" << "\n";
 
-        if(nargs[2])
+        if(withEdges && !withLabel)
         for(int i=0; i < EdgesPoly->N(); i++)
           polyWrite << "1" << "\n";
+
+        if(withEdges && withLabel)
+        for(int i=0; i < EdgesPoly->N(); i++)
+          polyWrite << (*LabelsPoly)(i)  << "\n";
       }
     }
 

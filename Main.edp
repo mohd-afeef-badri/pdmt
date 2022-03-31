@@ -117,15 +117,17 @@ func int run (){
 
 
 //-----------------------------------------------------------------------
-// compute nodes for polygon
+// compute nodes/labels for polygons
 //-----------------------------------------------------------------------
   V0h   ThTix = x, ThTiy = y;            // nodes at triangle centres
   V1h   ThVix = x, ThViy = y;            // nodes at vertices
 
   real[int] ThEix(ThNbe), ThEiy(ThNbe);  // nodes at boundary edge centres
+  int[int]  ThEiLab(ThNbe);              // labels of edges
   for(int e=0; e<ThNbe;++e){
         ThEix(e) = 0.5*(Th(Th.be(e)[0]).x + Th(Th.be(e)[1]).x);
         ThEiy(e) = 0.5*(Th(Th.be(e)[0]).y + Th(Th.be(e)[1]).y);
+        ThEiLab(e) = Th.be(e).label;
   }
 
 
@@ -134,6 +136,7 @@ func int run (){
 // initialize polyhedral mesh
 //-----------------------------------------------------------------------
   real[int,int]  PhV(0,0);
+  int [int]      PhELabels;
   int [int][int] PhC;
   int [int][int] PhE;
   {
@@ -144,6 +147,7 @@ func int run (){
   PhV.resize(PhNn,2);
   PhC.resize(PhNp);
   PhE.resize(PhNe);
+  PhELabels.resize(PhNe);
   }
 
 
@@ -222,6 +226,7 @@ macro vectorPushBack(V, p1, p2, p3)
       // New procedure for adding the border point //
       int pointBorder =  int(ThNt + indexnbe);
       int[int] posVect(2);
+      int[int] edgeLocalLab (2);
       int count=0;
 
       for(int p=headvb[v]; p >=0; p=nextb[p]){
@@ -229,6 +234,7 @@ macro vectorPushBack(V, p1, p2, p3)
         vectorPushBack(Pi, ThEix(k), ThEiy(k), int(ThNt + ThNbe + k) );
         PiNe[][v] = PiNe[][v] + 1;
 
+        edgeLocalLab[count] = ThEiLab(k);
         posVect[count] = int(ThNt + ThNbe + k);
         count++;
       }
@@ -269,13 +275,14 @@ macro vectorPushBack(V, p1, p2, p3)
       PhE[indexedge].resize(2);
       PhE[indexedge][0] = posVect[0];
       PhE[indexedge][1] = pointBorder;
+      PhELabels[indexedge] = edgeLocalLab[0];
       indexedge++;
 
       PhE[indexedge].resize(2);
       PhE[indexedge][0] = pointBorder;
       PhE[indexedge][1] = posVect[1];
+      PhELabels[indexedge] = edgeLocalLab[1];
       indexedge++;
-
 
       indexploy++;
       indexnbe++;
@@ -303,15 +310,28 @@ macro vectorPushBack(V, p1, p2, p3)
 //-----------------------------------------------------------------------
 //  save polygon mesh
 //-----------------------------------------------------------------------
+
+/*
+// To write a .vtk mesh without edges
   PdmtPolyMeshWrite(  ""+ThName+"_poly_"+mpirank+".vtk",
                       nodes = PhV,
                       cells = PhC
                    );
+*/
 
-  PdmtPolyMeshWrite(  ""+ThName+"_poly_with_edges_"+mpirank+".vtk",
+/*
+// To write a .med mesh without edges
+  PdmtPolyMeshWrite(  ""+ThName+"_poly_"+mpirank+".med",
+                      nodes = PhV,
+                      cells = PhC
+                   );
+*/
+
+  PdmtPolyMeshWrite(  ""+ThName+"_poly_mpirank_"+mpirank+".vtk",
                       nodes = PhV,
                       cells = PhC,
-                      edges = PhE
+                      edges = PhE,
+                      labels = PhELabels
                    );
 
   return 0;
