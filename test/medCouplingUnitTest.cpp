@@ -64,7 +64,7 @@ int testRun()
 
 int testRun()
 {
-  double targetCoords[48]={
+double targetCoords[48]={
 0.333333	,0.166667,
 0.166667	,0.333333,
 0.833333	,0.166667,
@@ -90,7 +90,9 @@ int testRun()
 0	,0.25,
 0	,0.75
   };
-  mcIdType targetConn[48]={
+
+
+mcIdType targetConn[56]={
 /*
 5 16 0 1 22 8
 6 16 9 17 2 3 0
@@ -110,31 +112,55 @@ int testRun()
 2 ,18, 12 ,19, 6, 3,
 23,5,  20 ,13,
 4 ,7 , 21 ,14 ,20, 5,
-6 ,19, 15 ,21, 7
+6 ,19, 15 ,21, 7,
+22, 8,
+8 ,16,
+17, 9,
+9 ,16,
                  };
-  MEDCouplingUMesh *targetMesh=MEDCouplingUMesh::New();
-  targetMesh->setMeshDimension(2);
-  targetMesh->allocateCells(9);   // total number of cells
-  targetMesh->setName("2DPolyMesh_2");
-  targetMesh->insertNextCell(INTERP_KERNEL::NORM_POLYGON,5,targetConn);      // comes from connectivity
-  targetMesh->insertNextCell(INTERP_KERNEL::NORM_POLYGON,6,targetConn+5);
-  targetMesh->insertNextCell(INTERP_KERNEL::NORM_POLYGON,4,targetConn+11);
-  targetMesh->insertNextCell(INTERP_KERNEL::NORM_POLYGON,6,targetConn+15);
-  targetMesh->insertNextCell(INTERP_KERNEL::NORM_POLYGON,6,targetConn+21);
-  targetMesh->insertNextCell(INTERP_KERNEL::NORM_POLYGON,6,targetConn+27);
-  targetMesh->insertNextCell(INTERP_KERNEL::NORM_POLYGON,4,targetConn+33);
-  targetMesh->insertNextCell(INTERP_KERNEL::NORM_POLYGON,6,targetConn+37);
-  targetMesh->insertNextCell(INTERP_KERNEL::NORM_POLYGON,5,targetConn+43);
+  MEDCouplingUMesh *targetMesh2d=MEDCouplingUMesh::New();
+  targetMesh2d->setMeshDimension(2);
+  targetMesh2d->allocateCells(10);   // total number of cells
+  targetMesh2d->setName("2DPolyMesh_2");
+  targetMesh2d->insertNextCell(INTERP_KERNEL::NORM_POLYGON,5,targetConn);      // comes from connectivity
+  targetMesh2d->insertNextCell(INTERP_KERNEL::NORM_POLYGON,6,targetConn+5);
+  targetMesh2d->insertNextCell(INTERP_KERNEL::NORM_POLYGON,4,targetConn+11);
+  targetMesh2d->insertNextCell(INTERP_KERNEL::NORM_POLYGON,6,targetConn+15);
+  targetMesh2d->insertNextCell(INTERP_KERNEL::NORM_POLYGON,6,targetConn+21);
+  targetMesh2d->insertNextCell(INTERP_KERNEL::NORM_POLYGON,6,targetConn+27);
+  targetMesh2d->insertNextCell(INTERP_KERNEL::NORM_POLYGON,4,targetConn+33);
+  targetMesh2d->insertNextCell(INTERP_KERNEL::NORM_POLYGON,6,targetConn+37);
+  targetMesh2d->insertNextCell(INTERP_KERNEL::NORM_POLYGON,5,targetConn+43);
+  targetMesh2d->finishInsertingCells();
 
-  targetMesh->finishInsertingCells();
+
+  MEDCouplingUMesh *targetMesh1d=MEDCouplingUMesh::New();
+  targetMesh1d->setMeshDimension(1);
+  targetMesh1d->allocateCells(4);
+  targetMesh1d->setName("2DPolyMesh_1");
+  targetMesh1d->insertNextCell(INTERP_KERNEL::NORM_SEG2,2,targetConn+48);
+  targetMesh1d->insertNextCell(INTERP_KERNEL::NORM_SEG2,2,targetConn+50);
+  targetMesh1d->insertNextCell(INTERP_KERNEL::NORM_SEG2,2,targetConn+52);
+  targetMesh1d->insertNextCell(INTERP_KERNEL::NORM_SEG2,2,targetConn+54);
+  targetMesh1d->finishInsertingCells();
+
   DataArrayDouble *myCoords=DataArrayDouble::New();
   myCoords->alloc(24,2); // tottal number of points
   myCoords->setInfoOnComponent(0,"x [m]");
   myCoords->setInfoOnComponent(1,"y [m]");
   std::copy(targetCoords,targetCoords+48,myCoords->getPointer());
-  targetMesh->setCoords(myCoords);
+  targetMesh2d->setCoords(myCoords);
+  targetMesh1d->setCoords(myCoords);
+
+  std::vector<const MEDCouplingUMesh *> finalMesh;
+  finalMesh.push_back(targetMesh2d);
+  finalMesh.push_back(targetMesh1d);
+
+  WriteUMeshes("finalMesh.med",finalMesh,true);
+
   myCoords->decrRef();
-  WriteUMesh("file2.med",targetMesh,true);
+  WriteUMesh("mesh2d.med",targetMesh2d,true);
+  WriteUMesh("mesh1d.med",targetMesh1d,true);
   return 1;
 }
 
