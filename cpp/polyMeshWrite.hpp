@@ -257,54 +257,103 @@ AnyType polyMeshWrite_Op<K>::operator()(Stack stack) const
       }
     }
 
-
 #ifdef MEDCOUPLING
     if ( (fullFileName).find(".med") != std::string::npos)
     {
 
-      int TotalNodes = nodesPoly->N();
-      double targetCoords[TotalNodes*2];
+      // -------- get nodes of the mesh  ---------- //
+      int    TotalNodes = nodesPoly->N();
+      double medNodeCoords[TotalNodes*2];
+
       for(int i=0; i < TotalNodes; i++){
-        targetCoords[i*2]=(*nodesPoly)(i,0) ;
-        targetCoords[i*2+1]=(*nodesPoly)(i,1);
+        medNodeCoords[i*2]   = (*nodesPoly)(i,0);
+        medNodeCoords[i*2+1] = (*nodesPoly)(i,1);
       }
 
+      // ------------ get cells | cells + edges ---- //
       int TotalCells = CellsPoly->N();
       int TotalCellConnectivity = 0;
+      int TotalConnectionList = TotalCells;
 
       for(int i=0; i < TotalCells; i++)
         TotalCellConnectivity += (*CellsPoly)(i).N() + 1;
 
-      mcIdType targetConn[TotalCellConnectivity-TotalCells];
+      if(withEdges){
+        int TotalEdges = EdgesPoly->N();
+
+        for(int i=0; i < TotalEdges; i++)
+           TotalCellConnectivity += (*EdgesPoly)(i).N() + 1;
+
+        TotalConnectionList +=  TotalEdges;
+      }
+
+      mcIdType medCellConn[TotalCellConnectivity-TotalConnectionList];
 
       int count=0;
-      for(int i=0; i < TotalCells; i++){
+      for(int i=0; i < CellsPoly->N(); i++){
         for(int j=0; j < (*CellsPoly)(i).N(); j++){
-          targetConn[count]= (*CellsPoly)(i)(j);
+          medCellConn[count] = (*CellsPoly)(i)(j);
           count++;
         }
       }
 
-      MEDCouplingUMesh *targetMesh=MEDCouplingUMesh::New();
-      targetMesh->setMeshDimension(2);
-      targetMesh->allocateCells(TotalCells);
-      targetMesh->setName("2DPolyMesh_2");
+      if(withEdges){
+        for(int i=0; i < EdgesPoly->N(); i++){
+          for(int j=0; j < (*EdgesPoly)(i).N(); j++){
+            medCellConn[count] = (*EdgesPoly)(i)(j);
+            count++;
+          }
+        }
+      }
+
+      // --- fill med meshes --- //
+      MEDCouplingUMesh *medMesh2d=MEDCouplingUMesh::New();
+      MEDCouplingUMesh *medMesh1d=MEDCouplingUMesh::New();
+
+      medMesh2d->setMeshDimension(2);
+      medMesh2d->allocateCells(CellsPoly->N());
+      medMesh2d->setName("pdmtMesh2d");
 
       count=0;
-      for(int i=0; i < TotalCells; i++){
-        targetMesh->insertNextCell(INTERP_KERNEL::NORM_POLYGON,(*CellsPoly)(i).N(),targetConn+count);
+      for(int i=0; i < CellsPoly->N(); i++){
+        medMesh2d->insertNextCell(INTERP_KERNEL::NORM_POLYGON,(*CellsPoly)(i).N(),medCellConn+count);
         count += (*CellsPoly)(i).N();
       }
 
-      targetMesh->finishInsertingCells();
+      medMesh2d->finishInsertingCells();
+
+
+      if(withEdges){
+        medMesh1d->setMeshDimension(1);
+        medMesh1d->allocateCells(EdgesPoly->N());
+        medMesh1d->setName("pdmtMesh1d");
+
+        for(int i=0; i < EdgesPoly->N(); i++){
+          medMesh1d->insertNextCell(INTERP_KERNEL::NORM_SEG2,2,medCellConn+count);
+          count += (*EdgesPoly)(i).N();
+        }
+      }
+
+
       DataArrayDouble *myCoords=DataArrayDouble::New();
       myCoords->alloc(TotalNodes,2);
-      myCoords->setInfoOnComponent(0,"x [m]");
-      myCoords->setInfoOnComponent(1,"y [m]");
-      std::copy(targetCoords,targetCoords+(TotalNodes*2),myCoords->getPointer());
-      targetMesh->setCoords(myCoords);
+      myCoords->setInfoOnComponent(0,"x");
+      myCoords->setInfoOnComponent(1,"y");
+      std::copy(medNodeCoords,medNodeCoords+(TotalNodes*2),myCoords->getPointer());
+
+      std::vector<const MEDCouplingUMesh *> finalMesh;
+      finalMesh.push_back(medMesh2d);
+      if(withEdges)
+      finalMesh.push_back(medMesh1d);
+
+      medMesh2d->setCoords(myCoords);
+
+      if(withEdges)
+      medMesh1d->setCoords(myCoords);
       myCoords->decrRef();
-      WriteUMesh(*inputfile,targetMesh,true);
+
+      WriteUMeshes(*inputfile,finalMesh,true);
+      //WriteUMesh(*inputfile,medMesh2d,true);
 
       }
 #endif
