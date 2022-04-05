@@ -384,13 +384,14 @@ AnyType polyMeshWrite_Op<K>::operator()(Stack stack) const
           elemsFams[i] = ( * LabelsPoly)(i);
         }
 
+#ifdef DEBUG
         // Iterate through all the elements in a set and display the value.
         for (std::set < int > ::iterator it = poly2DUniqueLabels.begin(); it != poly2DUniqueLabels.end(); ++it)
-          std::cout << " Volume " << * it;
+          std::cout << " Volume tag_i " << * it << endl;
 
         for (std::set < int > ::iterator it = poly1DUniqueLabels.begin(); it != poly1DUniqueLabels.end(); ++it)
-          std::cout << " Surface " << * it;
-
+          std::cout << " Surface tag_i " << * it << endl;
+#endif
         std::copy(elemsFams, elemsFams + CellsPoly -> N(), fam2d -> getPointer());
         std::copy(elemsFams + CellsPoly -> N(), elemsFams + int(EdgesPoly -> N() + CellsPoly -> N()), fam1d -> getPointer());
 
@@ -424,6 +425,7 @@ AnyType polyMeshWrite_Op<K>::operator()(Stack stack) const
             theGroups["boundary4"].push_back("border4");
     */
 
+        // TO DO: add meshinfo.csv in future that contains tags //
         finalMeshWithLabel -> setFamilyInfo(theFamilies);
         finalMeshWithLabel -> setGroupInfo(theGroups);
 
