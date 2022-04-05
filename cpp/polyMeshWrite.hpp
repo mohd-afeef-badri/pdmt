@@ -22,6 +22,7 @@
 #include <iostream>
 #include <stack>
 #include <stdlib.h>
+#include <set>
 
 #ifdef MEDCOUPLING
 #include "MEDLoader.hxx"
@@ -259,167 +260,176 @@ AnyType polyMeshWrite_Op<K>::operator()(Stack stack) const
     }
 
 #ifdef MEDCOUPLING
-    if ( (fullFileName).find(".med") != std::string::npos)
-    {
+    if ((fullFileName).find(".med") != std::string::npos) {
 
-      // -------- get nodes of the mesh  ---------- //
-      int    TotalNodes = nodesPoly->N();
-      double medNodeCoords[TotalNodes*2];
+      //  get nodes of the mesh  //
+      int TotalNodes = nodesPoly -> N();
 
-      for(int i=0; i < TotalNodes; i++){
-        medNodeCoords[i*2]   = (*nodesPoly)(i,0);
-        medNodeCoords[i*2+1] = (*nodesPoly)(i,1);
+      double medNodeCoords[TotalNodes * 2];
+
+      for (int i = 0; i < TotalNodes; i++) {
+        medNodeCoords[i * 2] = ( * nodesPoly)(i, 0);
+        medNodeCoords[i * 2 + 1] = ( * nodesPoly)(i, 1);
       }
 
-      // ------------ get cells | cells + edges ---- //
-      int TotalCells = CellsPoly->N();
+      //  get cells | cells + edges //
+      int TotalCells = CellsPoly -> N();
       int TotalCellConnectivity = 0;
       int TotalConnectionList = TotalCells;
 
-      for(int i=0; i < TotalCells; i++)
-        TotalCellConnectivity += (*CellsPoly)(i).N() + 1;
+      for (int i = 0; i < TotalCells; i++)
+        TotalCellConnectivity += ( * CellsPoly)(i).N() + 1;
 
-      if(withEdges){
-        int TotalEdges = EdgesPoly->N();
+      if (withEdges) {
+        int TotalEdges = EdgesPoly -> N();
 
-        for(int i=0; i < TotalEdges; i++)
-           TotalCellConnectivity += (*EdgesPoly)(i).N() + 1;
+        for (int i = 0; i < TotalEdges; i++)
+          TotalCellConnectivity += ( * EdgesPoly)(i).N() + 1;
 
-        TotalConnectionList +=  TotalEdges;
+        TotalConnectionList += TotalEdges;
       }
 
-      mcIdType medCellConn[TotalCellConnectivity-TotalConnectionList];
+      mcIdType medCellConn[TotalCellConnectivity - TotalConnectionList];
 
-      int count=0;
-      for(int i=0; i < CellsPoly->N(); i++){
-        for(int j=0; j < (*CellsPoly)(i).N(); j++){
-          medCellConn[count] = (*CellsPoly)(i)(j);
+      int count = 0;
+      for (int i = 0; i < CellsPoly -> N(); i++) {
+        for (int j = 0; j < ( * CellsPoly)(i).N(); j++) {
+          medCellConn[count] = ( * CellsPoly)(i)(j);
           count++;
         }
       }
 
-      if(withEdges){
-        for(int i=0; i < EdgesPoly->N(); i++){
-          for(int j=0; j < (*EdgesPoly)(i).N(); j++){
-            medCellConn[count] = (*EdgesPoly)(i)(j);
+      if (withEdges) {
+        for (int i = 0; i < EdgesPoly -> N(); i++) {
+          for (int j = 0; j < ( * EdgesPoly)(i).N(); j++) {
+            medCellConn[count] = ( * EdgesPoly)(i)(j);
             count++;
           }
         }
       }
 
-      // --- fill med meshes --- //
-      MEDCouplingUMesh *medMesh2d=MEDCouplingUMesh::New();
-      MEDCouplingUMesh *medMesh1d=MEDCouplingUMesh::New();
+      // --- fill med meshes ---	//
+      MEDCouplingUMesh * medMesh2d = MEDCouplingUMesh::New();
+      MEDCouplingUMesh * medMesh1d = MEDCouplingUMesh::New();
 
-      medMesh2d->setMeshDimension(2);
-      medMesh2d->allocateCells(CellsPoly->N());
-      medMesh2d->setName("PolyMesh");
+      medMesh2d -> setMeshDimension(2);
+      medMesh2d -> allocateCells(CellsPoly -> N());
+      medMesh2d -> setName("PolyMesh");
 
-      count=0;
-      for(int i=0; i < CellsPoly->N(); i++){
-        medMesh2d->insertNextCell(INTERP_KERNEL::NORM_POLYGON,(*CellsPoly)(i).N(),medCellConn+count);
-        count += (*CellsPoly)(i).N();
+      count = 0;
+      for (int i = 0; i < CellsPoly -> N(); i++) {
+        medMesh2d -> insertNextCell(INTERP_KERNEL::NORM_POLYGON, ( * CellsPoly)(i).N(), medCellConn + count);
+        count += ( * CellsPoly)(i).N();
       }
 
-      medMesh2d->finishInsertingCells();
+      medMesh2d -> finishInsertingCells();
 
+      if (withEdges) {
+        medMesh1d -> setMeshDimension(1);
+        medMesh1d -> allocateCells(EdgesPoly -> N());
+        medMesh1d -> setName("PolyMesh");
 
-      if(withEdges){
-        medMesh1d->setMeshDimension(1);
-        medMesh1d->allocateCells(EdgesPoly->N());
-        medMesh1d->setName("PolyMesh");
-
-        for(int i=0; i < EdgesPoly->N(); i++){
-          medMesh1d->insertNextCell(INTERP_KERNEL::NORM_SEG2,2,medCellConn+count);
-          count += (*EdgesPoly)(i).N();
+        for (int i = 0; i < EdgesPoly -> N(); i++) {
+          medMesh1d -> insertNextCell(INTERP_KERNEL::NORM_SEG2, 2, medCellConn + count);
+          count += ( * EdgesPoly)(i).N();
         }
       }
 
+      DataArrayDouble * myCoords = DataArrayDouble::New();
+      myCoords -> alloc(TotalNodes, 2);
+      myCoords -> setInfoOnComponent(0, "x");
+      myCoords -> setInfoOnComponent(1, "y");
+      std::copy(medNodeCoords, medNodeCoords + (TotalNodes * 2), myCoords -> getPointer());
 
-      DataArrayDouble *myCoords=DataArrayDouble::New();
-      myCoords->alloc(TotalNodes,2);
-      myCoords->setInfoOnComponent(0,"x");
-      myCoords->setInfoOnComponent(1,"y");
-      std::copy(medNodeCoords,medNodeCoords+(TotalNodes*2),myCoords->getPointer());
+      medMesh2d -> setCoords(myCoords);
 
-/*
-      if(!withLabel){
-        std::vector<const MEDCouplingUMesh *> finalMesh;
+      if (withEdges)
+        medMesh1d -> setCoords(myCoords);
 
+      myCoords -> decrRef();
+
+      if (!withLabel) {
+        std::vector < const MEDCouplingUMesh * > finalMesh;
         finalMesh.push_back(medMesh2d);
-
-        if(withEdges)
+        if (withEdges)
           finalMesh.push_back(medMesh1d);
-      }
-*/
-      medMesh2d->setCoords(myCoords);
-
-      if(withEdges)
-      medMesh1d->setCoords(myCoords);
-
-      myCoords->decrRef();
-
-/*
-      if(!withLabel){
-        WriteUMeshes(*inputfile,finalMesh,true);
-      }
-*/
-
-      //WriteUMesh(*inputfile,medMesh2d,true);
-
-      if(!withLabel){
-        std::vector<const MEDCouplingUMesh *> finalMesh;
-        finalMesh.push_back(medMesh2d);
-        if(withEdges)
-          finalMesh.push_back(medMesh1d);
-        WriteUMeshes(*inputfile,finalMesh,true);
+        WriteUMeshes( * inputfile, finalMesh, true);
       }
 
+      if (withLabel) {
 
-      if(withLabel){
+        MCAuto < MEDFileUMesh > finalMeshWithLabel = MEDFileUMesh::New();
 
-        MCAuto<MEDFileUMesh> finalMeshWithLabel = MEDFileUMesh::New();
+        finalMeshWithLabel -> setMeshAtLevel(0, medMesh2d);
+        finalMeshWithLabel -> setMeshAtLevel(-1, medMesh1d);
 
-        finalMeshWithLabel->setMeshAtLevel(0 ,medMesh2d);
-        finalMeshWithLabel->setMeshAtLevel(-1,medMesh1d);
+        MCAuto < DataArrayIdType > fam2d = DataArrayIdType::New();
+        MCAuto < DataArrayIdType > fam1d = DataArrayIdType::New();
 
-        MCAuto<DataArrayIdType> fam2d = DataArrayIdType::New();
-        MCAuto<DataArrayIdType> fam1d = DataArrayIdType::New();
+        fam2d -> alloc(CellsPoly -> N(), 1);
+        fam1d -> alloc(EdgesPoly -> N(), 1);
 
-        fam2d->alloc(CellsPoly->N(),1);
-        fam1d->alloc(EdgesPoly->N(),1);
+        mcIdType elemsFams[CellsPoly -> N() + EdgesPoly -> N()];
 
-        mcIdType elemsFams[CellsPoly->N()+EdgesPoly->N()];
+        std::set < int > poly2DUniqueLabels;
+        std::set < int > poly1DUniqueLabels;
 
-        for(int i=0; i < CellsPoly->N(); i++){
-          elemsFams[i] =  11;//(*LabelsPoly)(i);
+        for (int i = 0; i < CellsPoly -> N(); i++) {
+          poly2DUniqueLabels.insert(( * LabelsPoly)(i));
+          elemsFams[i] = ( * LabelsPoly)(i) + 1000; // Adding 1000 because med does not like tag zero
         }
 
-        for(int i=CellsPoly->N(); i < EdgesPoly->N() + CellsPoly->N(); i++){
-          elemsFams[i] =  22;//(*LabelsPoly)(i);
+        for (int i = CellsPoly -> N(); i < EdgesPoly -> N() + CellsPoly -> N(); i++) {
+          poly1DUniqueLabels.insert(( * LabelsPoly)(i));
+          elemsFams[i] = ( * LabelsPoly)(i);
         }
 
-        std::copy(elemsFams  ,elemsFams+CellsPoly->N() ,fam2d->getPointer());
-        std::copy(elemsFams+CellsPoly->N(),elemsFams+int(EdgesPoly->N() + CellsPoly->N()),fam1d->getPointer());
+        // Iterate through all the elements in a set and display the value.
+        for (std::set < int > ::iterator it = poly2DUniqueLabels.begin(); it != poly2DUniqueLabels.end(); ++it)
+          std::cout << " Volume " << * it;
 
-        finalMeshWithLabel->setFamilyFieldArr(-1,fam1d);
-        finalMeshWithLabel->setFamilyFieldArr(0,fam2d);
+        for (std::set < int > ::iterator it = poly1DUniqueLabels.begin(); it != poly1DUniqueLabels.end(); ++it)
+          std::cout << " Surface " << * it;
 
-        std::map<std::string,mcIdType> theFamilies;
-        theFamilies["cells" ]=11;
-        theFamilies["border"]=22;
+        std::copy(elemsFams, elemsFams + CellsPoly -> N(), fam2d -> getPointer());
+        std::copy(elemsFams + CellsPoly -> N(), elemsFams + int(EdgesPoly -> N() + CellsPoly -> N()), fam1d -> getPointer());
 
-        std::map<std::string, std::vector<std::string> > theGroups;
-        theGroups["Face_group"].push_back("cells");
-        theGroups["boundary"].push_back("border");
+        finalMeshWithLabel -> setFamilyFieldArr(-1, fam1d);
+        finalMeshWithLabel -> setFamilyFieldArr(0, fam2d);
 
-        finalMeshWithLabel->setFamilyInfo(theFamilies);
-        finalMeshWithLabel->setGroupInfo(theGroups);
+        std::map < std::string, std::vector < std::string >> theGroups;
+        std::map < std::string, mcIdType > theFamilies;
 
-        finalMeshWithLabel->write(*inputfile,2);          // med
+        for (std::set < int > ::iterator it = poly2DUniqueLabels.begin(); it != poly2DUniqueLabels.end(); ++it) {
+          theFamilies["cell_family_" + to_string( * it) + ""] = * it + 1000;
+          theGroups["cell_group_" + to_string( * it) + ""].push_back("cell_family_" + to_string( * it) + "");
+        }
+
+        for (std::set < int > ::iterator it = poly1DUniqueLabels.begin(); it != poly1DUniqueLabels.end(); ++it) {
+          theFamilies["boundary_family_" + to_string( * it) + ""] = * it;
+          theGroups["boundary_group_" + to_string( * it) + ""].push_back("boundary_family_" + to_string( * it) + "");
+        }
+
+    /*
+            theFamilies["cells" ]=0;
+            theFamilies["border1"]=1;
+            theFamilies["border2"]=2;
+            theFamilies["border3"]=3;
+            theFamilies["border4"]=4;
+
+            theGroups["Face_group"].push_back("cells");
+            theGroups["boundary1"].push_back("border1");
+            theGroups["boundary2"].push_back("border2");
+            theGroups["boundary3"].push_back("border3");
+            theGroups["boundary4"].push_back("border4");
+    */
+
+        finalMeshWithLabel -> setFamilyInfo(theFamilies);
+        finalMeshWithLabel -> setGroupInfo(theGroups);
+
+        finalMeshWithLabel -> write( * inputfile, 2); // med
       }
-
-   }
+    }
 #endif
 
     return 0L;
