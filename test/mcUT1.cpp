@@ -102,6 +102,9 @@ mcIdType cellConnectivity[48]={
   medMesh2d->insertNextCell(INTERP_KERNEL::NORM_POLYGON,5,cellConnectivity+43);
   medMesh2d->finishInsertingCells();
 
+//---------------------------------------------------------------------------------
+// 0D mesh creation i.e the nodes
+//---------------------------------------------------------------------------------
   // add nodes
   DataArrayDouble *myCoords=DataArrayDouble::New();
   myCoords->alloc(nNodes,2);                  // tottal number of points
@@ -111,7 +114,11 @@ mcIdType cellConnectivity[48]={
   medMesh2d->setCoords(myCoords);
   myCoords->decrRef();
 
+//---------------------------------------------------------------------------------
+// wirte mesh in med and vtu formats
+//---------------------------------------------------------------------------------
   WriteUMesh("mcUT1.med",medMesh2d,true);
+  medMesh2d->writeVTK("mcUT1.vtu");
 
   return 1;
 }
