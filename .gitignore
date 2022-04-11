@@ -7,3 +7,6 @@ test-meshes/*
 
 ## meshes ##
 *.med
+
+## mesh info file ##
+*.txt

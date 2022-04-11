@@ -56,12 +56,16 @@ int PdmtGetMeshInfo(const Fem2D::Mesh* const &pTh, KN< long > *const &isBorderNo
   
   long nbBorderNodes = 0;
   
-  for(int i = 0; i < Th.nv; ++i)                // isBorderNode = 0
+  for(int i = 0; i < Th.nv; ++i){                // isBorderNode = 0
     *(isBorderNode[0]+i) = 0;
+//    cout << " Th.nv.lab " << Th(i).lab << endl;
+    }
 
   for(int k = 0; k < Th.neb; ++k)               // isBorderNode > 0
-   for(int i = 0; i < 2; ++i)
+   for(int i = 0; i < 2; ++i){
+//     cout << " Th.be(k).lab " << Th.be(k).lab << endl;
      *(isBorderNode[0]+Th(Th.be(k)[i])) += 1; 
+     }
 
   for(int i = 0; i < Th.nv; ++i)                // isBorderNode = 0
     if(*(isBorderNode[0]+i)) 

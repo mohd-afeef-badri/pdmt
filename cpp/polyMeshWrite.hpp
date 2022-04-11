@@ -26,12 +26,15 @@
 
 #ifdef MEDCOUPLING
 #include "MEDLoader.hxx"
+#include "MEDFileData.hxx"
+/*
 #include "MEDLoaderBase.hxx"
 #include "MEDCouplingUMesh.hxx"
 #include "MEDCouplingFieldDouble.hxx"
 #include "MEDCouplingFieldFloat.hxx"
 #include "MEDCouplingMemArray.hxx"
-#include "MEDFileData.hxx"
+
+*/
 using namespace MEDCoupling;
 #endif
 
@@ -265,8 +268,8 @@ AnyType polyMeshWrite_Op<K>::operator()(Stack stack) const
       //  get nodes of the mesh  //
       int TotalNodes = nodesPoly -> N();
 
-      double medNodeCoords[TotalNodes * 2];
-
+     //double medNodeCoords[TotalNodes * 2];
+      double* medNodeCoords = new double[TotalNodes * 2];
       for (int i = 0; i < TotalNodes; i++) {
         medNodeCoords[i * 2] = ( * nodesPoly)(i, 0);
         medNodeCoords[i * 2 + 1] = ( * nodesPoly)(i, 1);
@@ -289,7 +292,8 @@ AnyType polyMeshWrite_Op<K>::operator()(Stack stack) const
         TotalConnectionList += TotalEdges;
       }
 
-      mcIdType medCellConn[TotalCellConnectivity - TotalConnectionList];
+      //mcIdType medCellConn[TotalCellConnectivity - TotalConnectionList];
+      mcIdType *medCellConn = new mcIdType[TotalCellConnectivity - TotalConnectionList];
 
       int count = 0;
       for (int i = 0; i < CellsPoly -> N(); i++) {
@@ -458,7 +462,12 @@ AnyType polyMeshWrite_Op<K>::operator()(Stack stack) const
         finalMeshWithLabel -> setGroupInfo(theGroups);
 
         finalMeshWithLabel -> write( * inputfile, 2); // med
+
       }
+      medMesh1d -> decrRef();
+      medMesh2d -> decrRef();
+      delete[]     medNodeCoords;
+      delete[]     medCellConn;
     }
 #endif
 
