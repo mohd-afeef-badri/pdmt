@@ -278,7 +278,7 @@ AnyType polyMeshWrite_Op<K>::operator()(Stack stack) const
       //  get cells | cells + edges //
       int TotalCells = CellsPoly -> N();
       int TotalCellConnectivity = 0;
-      int TotalConnectionList = TotalCells;
+      int TotalElements = TotalCells;
 
       for (int i = 0; i < TotalCells; i++)
         TotalCellConnectivity += ( * CellsPoly)(i).N() + 1;
@@ -289,11 +289,11 @@ AnyType polyMeshWrite_Op<K>::operator()(Stack stack) const
         for (int i = 0; i < TotalEdges; i++)
           TotalCellConnectivity += ( * EdgesPoly)(i).N() + 1;
 
-        TotalConnectionList += TotalEdges;
+        TotalElements += TotalEdges;
       }
 
-      //mcIdType medCellConn[TotalCellConnectivity - TotalConnectionList];
-      mcIdType *medCellConn = new mcIdType[TotalCellConnectivity - TotalConnectionList];
+      //mcIdType medCellConn[TotalCellConnectivity - TotalElements];
+      mcIdType *medCellConn = new mcIdType[TotalCellConnectivity - TotalElements];
 
       int count = 0;
       for (int i = 0; i < CellsPoly -> N(); i++) {
