@@ -24,6 +24,8 @@
 #include <stdlib.h>
 #include <set>
 
+#include "vtkWriter.hpp"
+
 #ifdef MEDCOUPLING
 #include "MEDLoader.hxx"
 #include "MEDFileData.hxx"
@@ -134,132 +136,13 @@ AnyType polyMeshWrite_Op<K>::operator()(Stack stack) const
     //std::size_t writeMedFile = (fullFileName).find(".vtk");
 
     if ( (fullFileName).find(".vtk") != std::string::npos){
+     writePolyVtk(inputfile,nodesPoly,CellsPoly,EdgesPoly, LabelsPoly);
 
-      ofstream polyWrite;
-      polyWrite.open(*inputfile);
-
-      //------------ Write header ----------------//
-
-      polyWrite << "# vtk DataFile Version 2.0\n"
-                << "Unstructured Grid PDMT\n"
-                << "ASCII\n"
-                << "DATASET UNSTRUCTURED_GRID\n\n";
+    }
 
 
-      //------------ Write nodes ----------------//
-
-      if(verbosity){
-       std::cout << "------------------------------------------------------ " <<  std::endl;
-       std::cout << "PMDT NODES IN POLYMESH " << nodesPoly->N()  << std::endl;
-       std::cout << "------------------------------------------------------ " <<  std::endl;
-      }
-
-      {
-      int TotalNodes = nodesPoly->N();
-
-      polyWrite << "POINTS " << TotalNodes << " float\n";
-      for(int i=0; i < TotalNodes; i++)
-        polyWrite << (*nodesPoly)(i,0) << "\t" << (*nodesPoly)(i,1) << "\t 0\n";
-      }
-
-      //------------ Write cells ----------------//
-      if(verbosity){
-       std::cout << "------------------------------------------------------ " <<  std::endl;
-       std::cout << "PMDT CELS IN POLYMESH " << CellsPoly->N()  << std::endl;
-       //std::cout << "PMDT CELS IN POLYMESH " << (*CellsPoly)(0).N()  << std::endl;
-       //std::cout << "PMDT CELS IN POLYMESH " << (*CellsPoly)(0)(0)  << std::endl;
-       std::cout << "------------------------------------------------------ " <<  std::endl;
-      }
-
-      {
-        int TotalCells = CellsPoly->N();
-        int TotalCellConnectivity = 0;
-
-        int TotalVTKConnectionList = TotalCells;
-
-        for(int i=0; i < TotalCells; i++)
-           TotalCellConnectivity += (*CellsPoly)(i).N() + 1;
-
-        if(withEdges){
-        int TotalEdges = EdgesPoly->N();
-        for(int i=0; i < TotalEdges; i++)
-           TotalCellConnectivity += (*EdgesPoly)(i).N() + 1;
-
-        TotalVTKConnectionList +=  TotalEdges;
-        }
-
-        polyWrite << "\n";
-        polyWrite << "CELLS " << TotalVTKConnectionList << "\t" << TotalCellConnectivity;
-        polyWrite << "\n";
-
-        for(int i=0; i < TotalCells; i++){
-          polyWrite << (*CellsPoly)(i).N() << " ";
-          for(int j=0; j < (*CellsPoly)(i).N(); j++){
-            polyWrite << (*CellsPoly)(i)(j) << " ";
-          }
-          polyWrite << "\n" ;
-        }
-
-        if(withEdges){
-        for(int i=0; i < EdgesPoly->N(); i++){
-          polyWrite << (*EdgesPoly)(i).N() << " ";
-          for(int j=0; j < (*EdgesPoly)(i).N(); j++){
-            polyWrite << (*EdgesPoly)(i)(j) << " ";
-          }
-          polyWrite << "\n" ;
-        }
-        }
-      }
-
-      //------------ Write cell types -----------------------//
-      {
-        int TotalCells = CellsPoly->N();
-
-        if(withEdges)
-           TotalCells += EdgesPoly->N();
-
-        polyWrite << "\n";
-        polyWrite << "\n";
-        polyWrite << "CELL_TYPES " << TotalCells << " " ;
-        polyWrite << "\n";
-        for(int i=0; i < CellsPoly->N(); i++)
-          polyWrite << "7" << "\n";
-
-        if(withEdges)
-        for(int i=0; i < EdgesPoly->N(); i++)
-          polyWrite << "3" << "\n";
-      }
-
-
-      //------------ Write cell labels -----------------------//
-      {
-        int TotalCells = CellsPoly->N();
-
-        if(withEdges)
-           TotalCells += EdgesPoly->N();
-
-        polyWrite << "\n";
-        polyWrite << "\n";
-        polyWrite << "CELL_DATA " << TotalCells << " \n" ;
-        polyWrite << "SCALARS label float 1 \n";
-        polyWrite << "LOOKUP_TABLE CellColors ";
-        polyWrite << "\n";
-
-        if(!withLabel)
-          for(int i=0; i < CellsPoly->N(); i++)
-            polyWrite << "0" << "\n";
-        else
-          for(int i=0; i < CellsPoly->N(); i++)
-            polyWrite << (*LabelsPoly)(i) << "\n";
-
-        if(withEdges && !withLabel)
-          for(int i=0; i < EdgesPoly->N(); i++)
-            polyWrite << "1" << "\n";
-
-        if(withEdges && withLabel)
-          for(int i = CellsPoly->N(); i < EdgesPoly->N() + CellsPoly->N(); i++)
-            polyWrite << (*LabelsPoly)(i)  << "\n";
-      }
+    if ( (fullFileName).find(".vtu") != std::string::npos){
+     writePolyVtu(inputfile,nodesPoly,CellsPoly,EdgesPoly, LabelsPoly);
     }
 
 #ifdef MEDCOUPLING
