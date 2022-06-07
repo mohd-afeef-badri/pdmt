@@ -1,5 +1,12 @@
 LIST_COMPILE= pdmt.cpp
 
+HPP_DEP = pdmtFunctions.hpp \
+convexHull.hpp \
+polyMeshWrite.hpp \
+vtkWriter.hpp  \
+medWriter.hpp
+
+
 LOCAL_VERSION = no
 REMOTE_VERSION = ${salome}
 
@@ -24,7 +31,7 @@ all-local: $(DEP1)
 	@echo ""
 	@echo " Compilation list $(LIST_COMPILE)"
 
-pdmt.$(SO_SUFFIX): pdmt.cpp pdmtFunctions.hpp convexHull.hpp polyMeshWrite.hpp vtuWriter.hpp
+pdmt.$(SO_SUFFIX): pdmt.cpp  $(HPP_DEP)
 if HAVESALOME
 	export LD_LIBRARY_PATH=$(MEDFILE_ROOT_DIR)/lib:$(HDF5_ROOT_DIR)/lib:$(MEDCOUPLING_ROOT_DIR)/lib
 	$(FFCXX) -auto -mpi pdmt.cpp -I$(MEDCOUPLING_ROOT_DIR)/include -I$(MEDFILE_ROOT_DIR)/include -I$(HDF5_ROOT_DIR)/include -L$(MEDCOUPLING_ROOT_DIR)/lib -lmedloader -lmedcoupling -linterpkernel -lmedcouplingremapper $(PDMT_DEBUG) -DMEDCOUPLING
