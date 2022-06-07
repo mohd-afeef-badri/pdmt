@@ -4,9 +4,18 @@
 ## Not allowed files ##
 images/*
 test-meshes/*
+meshes/*
+out-mesh/*
+set-2/*
 
 ## meshes ##
-*.med
+*.medi
+*.gmsh
+*.mesh
+*.vtk
+
+# post process #
+*.vtu
 
 ## mesh info file ##
 *.txt
