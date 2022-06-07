@@ -24,12 +24,13 @@
 
 include "getARGV.idp";     // Activate Commandline arguments
 load    "./cpp/pdmt";      // Load pdmt library
-
+load "PETSc"
 //-----------------------------------------
 // Commandline parameters
 //-----------------------------------------
 
-
+    macro dimension()2// EOM
+    include "macro_ddm.idp"
 //
 // --debug : to print some verbos info
 //
@@ -97,10 +98,10 @@ if(readExtMesh)
 }
 else
 {
-  Th = square (2,2);
+  Th = square (12,12);
 }
 
-
+	buildDmesh(Th)
 //-----------------------------------------
 // Print Stats Tria mesh
 //-----------------------------------------
@@ -275,7 +276,7 @@ if(postprocess)
 // Write Polyhedral mesh
 //-----------------------------------------
 
-ofstream polyWrite("mesh_poly.vtk");
+ofstream polyWrite("mesh_poly_"+mpirank+".vtk");
 
 polyWrite << "# vtk DataFile Version 2.0\n"
           << "Unstructured Grid PDMT\n"
@@ -328,7 +329,7 @@ polyWrite << "\n";
 
 
 real[int]  P0x(0), P0y(0);
-real[int]  P0nI(0);
+int[int]  P0nI(0);
 
 int localIndex=0;
 

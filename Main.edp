@@ -333,19 +333,21 @@ macro vectorPushBack(V, p1, p2, p3)
                    );
 */
 
-/*
-// To write a .med mesh without edges
+
+// To write a .med mesh with/without edges
   PdmtPolyMeshWrite(  ""+ThName+"_poly_"+mpirank+".med",
                       nodes = PhV,
-                      cells = PhC
+                      cells = PhC,
+                      edges = PhE,          // this is optional
+                      labels = PhELabels    // this is optional
                    );
-*/
+
 
   PdmtPolyMeshWrite(  ""+ThName+"_poly_mpirank_"+mpirank+".vtk",
                       nodes = PhV,
                       cells = PhC,
-                      edges = PhE,
-                      labels = PhELabels
+                      edges = PhE,          // this is optional
+                      labels = PhELabels    // this is optional
                    );
 
   return 0;
