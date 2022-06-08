@@ -24,6 +24,8 @@
 #include <stdlib.h>
 #include <set>
 
+#include <mpi.h>
+
 #include "vtkWriter.hpp"
 
 #ifdef MEDCOUPLING
@@ -140,9 +142,19 @@ AnyType polyMeshWrite_Op<K>::operator()(Stack stack) const
      writePolyVtk(inputfile,nodesPoly,CellsPoly,EdgesPoly, LabelsPoly);
     }
 
-    if ( (fullFileName).find(".vtu") != std::string::npos){
+    if ( (fullFileName).find(".vtu") != std::string::npos)
+    {
+
+     int timePvd, mpiSize;
+     string basVtuFileName = "";
+
+     parallelIO(inputfile, 0, &timePvd, &mpiSize, &basVtuFileName);
      writePolyVtu(inputfile,nodesPoly,CellsPoly,EdgesPoly, LabelsPoly);
+
+     if( mpiSize > 1 )
+       PvtuWriter(inputfile,mpiSize,timePvd,basVtuFileName);
     }
+
 
 #ifdef MEDCOUPLING
     if ((fullFileName).find(".med") != std::string::npos) {

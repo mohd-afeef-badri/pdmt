@@ -350,7 +350,7 @@ macro vectorPushBack(V, p1, p2, p3)
                       labels = PhELabels    // this is optional
                    );
 
-  PdmtPolyMeshWrite(  ""+ThName+"_poly_mpirank_"+mpirank+".vtu",
+  PdmtPolyMeshWrite(  ""+ThName+"_poly.vtu",
                       nodes = PhV,
                       cells = PhC,
                       edges = PhE,          // this is optional
