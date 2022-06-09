@@ -6,7 +6,7 @@ clean-local:
 	@echo " Cleaning files in :"; pwd
 	@echo "*============================================================*"
 	@echo ""
-	rm  -f *~ *.vtk *.vtu
+	rm  -f *~ *.vtk *.vtu *.med *.txt
 
 
 maintainer-clean-local: clean-local

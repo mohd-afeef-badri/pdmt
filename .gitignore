@@ -6,7 +6,7 @@ images/*
 test-meshes/*
 meshes/*
 out-mesh/*
-set-2/*
+set-*
 
 ## meshes ##
 *.medi
