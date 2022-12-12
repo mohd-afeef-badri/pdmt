@@ -7,17 +7,6 @@ vtkWriter.hpp  \
 medWriter.hpp
 
 
-LOCAL_VERSION = no
-REMOTE_VERSION = ${salome}
-
-MEDCOUPLING_ROOT_DIR=${salome}/INSTALL/MEDCOUPLING
-MEDFILE_ROOT_DIR=${salome}/INSTALL/medfile
-HDF5_ROOT_DIR=${salome}/INSTALL/hdf5
-
-#MEDCOUPLING_ROOT_DIR=/home/mb258512/Salome/Salome-Test-Bench/SALOME-master-UB18.04/INSTALL/MEDCOUPLING
-#MEDFILE_ROOT_DIR=/home/mb258512/Salome/Salome-Test-Bench/SALOME-master-UB18.04/INSTALL/medfile
-#HDF5_ROOT_DIR=/home/mb258512/Salome/Salome-Test-Bench/SALOME-master-UB18.04/INSTALL/hdf5
-
 DEP1 = pdmt.$(SO_SUFFIX)
 
 #PDMT_DEBUG = -DDEBUG
@@ -32,10 +21,9 @@ all-local: $(DEP1)
 	@echo " Compilation list $(LIST_COMPILE)"
 
 pdmt.$(SO_SUFFIX): pdmt.cpp  $(HPP_DEP)
-if HAVESALOME
-	export LD_LIBRARY_PATH=$(MEDFILE_ROOT_DIR)/lib:$(HDF5_ROOT_DIR)/lib:$(MEDCOUPLING_ROOT_DIR)/lib
-	$(FFCXX) -auto -mpi pdmt.cpp -I$(MEDCOUPLING_ROOT_DIR)/include -I$(MEDFILE_ROOT_DIR)/include -I$(HDF5_ROOT_DIR)/include -L$(MEDCOUPLING_ROOT_DIR)/lib -lmedloader -lmedcoupling -linterpkernel -lmedcouplingremapper $(PDMT_DEBUG) -DMEDCOUPLING
-else !HAVESALOME
+if HAVEMED
+	$(FFCXX) -auto -mpi pdmt.cpp $(CXXFLAGS_MED) -I$(HDF5_ROOT_DIR)/include $(LDFLAGS_MED) $(LIBS_MED) $(PDMT_DEBUG) -DMEDCOUPLING
+else !HAVEMED
 	$(FFCXX) -auto pdmt.cpp $(PDMT_DEBUG)
 	@echo ""
 endif
