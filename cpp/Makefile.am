@@ -24,7 +24,7 @@ pdmt.$(SO_SUFFIX): pdmt.cpp  $(HPP_DEP)
 if HAVEMED
 	$(FFCXX) -auto -mpi pdmt.cpp $(CXXFLAGS_MED) $(LDFLAGS_MED) $(LIBS_MED) $(PDMT_DEBUG) -DMEDCOUPLING
 else !HAVEMED
-	$(FFCXX) -auto pdmt.cpp $(PDMT_DEBUG)
+	$(FFCXX) -auto -mpi pdmt.cpp $(PDMT_DEBUG)
 	@echo ""
 endif
 
