@@ -49,7 +49,7 @@ func mesh loadTheMesh(string meshName){
 
     mesh Th2D;
 
-    if(   (meshName.find(".mesh") == -1 && meshName.find(".msh") == -1 && meshName.find(".vtk") == -1) 
+    if(   (meshName.find(".mesh") == -1 && meshName.find(".msh") == -1 && meshName.find(".vtk") == -1 && meshName.find(".med") == -1)
         &&(meshName == "square" && meshName == "circle" )){
       cout << " ******************* ERROR ***********************\n"
            << "  Error in input mesh                             \n"
@@ -62,6 +62,11 @@ func mesh loadTheMesh(string meshName){
     if( meshName.find(".msh") > -1 ){
       load "gmsh"
       Th2D = gmshload(meshName);
+    }
+
+    if( meshName.find(".med") > -1 ){
+      load "./../medio/cpp/medio"
+      Th2D = loadmedmesh(meshName, meshname = "Mesh_1");
     }
 
     if( meshName.find(".mesh") > -1 ){
