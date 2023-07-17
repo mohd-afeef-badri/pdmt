@@ -1,21 +1,98 @@
-# allow files #
-!Main.edp
+## LOG FILES ##
+*.log
 
-## Not allowed files ##
-images/*
-test-meshes/*
-meshes/*
-out-mesh/*
-set-*
+## SYSTEM BACKUP FILES ##
+*~
+*.~
+*.swp
 
-## meshes ##
-*.medi
-*.gmsh
-*.mesh
-*.vtk
+## TEX DOCUMENTATION FILES ##
+*Readme.tex
+*Changelog.tex
 
-# post process #
+## Video files ##
+*.mp4
+*.avi
+
+## TEMP FILES ##
+*.tmp
+repo-activity.txt
+
+## OUTPUT FILES ##
+.output
+.info
+*a.out
+test-driver
+compile
+
+##Exec Files ##
+*MedCoupling_Test
+*medio-*
+
+## ORIGINAL FILES ##
+*.orig
+
+## MESH FILES ##
+*.msh
+*.medh
+*.med
+
+## MESH info files ##
+*_INFO.txt
+
+## PANDOC FILES ##
+*.ini
+
+## SHARED OBJECT FILES ##
+*.o
+*.so
+
+## PLOTTING DATA FILES ##
+*.data
+*.dat
+
+## FILES FOR CLUSTER ##
+launch.sh
+
+## TEST  FILE ##
+#test*
 *.vtu
 
-## mesh info file ##
-*.txt
+## AUTOCONF FILES ##
+Makefile
+Makefile.in
+/aclocal.m4
+/autom4te.cache/
+/config.*
+/configure
+/depcomp
+/install-sh
+/libtool
+/ltmain.sh
+/m4/
+/missing
+/stamp-h?
+.deps/
+.dirstamp
+.libs/
+*.l[ao]
+*.in
+*.nfs*
+
+
+## DOCUMENTATION FILES ##
+Readme.html
+Readme.pdf
+Changelog.pdf
+Changelog.html
+
+## MacOS FILES TO IGNORE ##
+*.DS_Store
+*.dylib
+*-e
+
+./configure
+
+## ext files ##
+ext/*.tar.gz
+ext/MEDCOUPLING*

@@ -3,6 +3,7 @@
 #--------------------------------------------------------------------------------
 MEDCOUPLING_VERSION=9.11.0
 SALOME_VERSION=9.11.0
+MEDIO_VERSION=1.0
 
 
 #--------------------------------------------------------------------------------
@@ -10,6 +11,9 @@ SALOME_VERSION=9.11.0
 #--------------------------------------------------------------------------------
 MEDCOUPLING_DOWNLOAD      =  wget -c https://files.salome-platform.org/Salome/Salome$(MEDCOUPLING_VERSION)/MEDCOUPLING-$(MEDCOUPLING_VERSION)-MPI.tar.gz \
                        -O MEDCOUPLING-$(MEDCOUPLING_VERSION)-MPI.tar.gz
+
+MEDIO_DOWNLOAD            =  wget -c https://github.com/mohd-afeef-badri/medio/archive/refs/tags/$(MEDIO_VERSION).tar.gz \
+                       -O medio-$(MEDIO_VERSION).tar.gz
 
 #--------------------------------------------------------------------------------
 # CMAKE FLAGS FOR MEDCOUPLING
@@ -36,7 +40,8 @@ CMAKE_FLAGS_MEDCOUPLING = \
 #--------------------------------------------------------------------------------
 if BUILDDEPENDENCIES
 LIST_MAKE_EXECUTE = download-dependencies \
-medcoupling-build
+medcoupling-build \
+medio-build
 else
 LIST_MAKE_EXECUTE =
 endif
@@ -46,16 +51,18 @@ all-local: $(LIST_MAKE_EXECUTE)
 	@echo ""
 
 
-
 download-dependencies:
 	@if [ ! -f MEDCOUPLING-$(MEDCOUPLING_VERSION)-MPI.tar.gz ]; then \
 		$(MEDCOUPLING_DOWNLOAD); \
+	fi
+	@if [ ! -f medio-$(MEDIO_VERSION).tar.gz ]; then \
+		$(MEDIO_DOWNLOAD); \
 	fi
 
 #--------------------------------------------------------------------------------
 # MEDCOUPLING installation
 #  - Download from wget version MEDCOUPLING_VERSION
-#  - User can override download by providing ext/mfront-$(MFRONT_VERSION).tar.gz
+#  - User can override download by providing ext/MEDCOUPLING-$(MEDCOUPLING_VERSION)-MPI.tar.gz
 #--------------------------------------------------------------------------------
 
 medcoupling-build: MEDCOUPLING-$(MEDCOUPLING_VERSION)-MPI/INSTALL/MEDCOUPLING/lib/libmedcoupling.so
@@ -95,6 +102,33 @@ MEDCOUPLING-$(MEDCOUPLING_VERSION)-MPI/INSTALL/MEDCOUPLING/lib/libmedcoupling.so
 	make -j16 && \
 	make install
 
+#--------------------------------------------------------------------------------
+# MEDIO installation
+#  - Download from wget version MEDIO_VERSION
+#  - User can override download by providing ext/medio-$(MEDIO_VERSION).tar.gz
+#--------------------------------------------------------------------------------
+
+medio-build: medio-$(MEDIO_VERSION)/src/medio.so
+
+medio-$(MEDIO_VERSION)/src/medio.so: medio-$(MEDIO_VERSION).tar.gz
+	@echo ""
+	@echo "*============================================================*"
+	@echo " MEDIO installation began for you be patient:   "
+	@echo "   - Download using wget version $(MEDIO_VERSION)"
+	@echo "   - to overide provide ext/medio-$(MEDIO_VERSION).tar.gz"
+	@echo "*============================================================*"
+	@echo ""
+	@echo ""
+	@echo "*---------------------------------*"
+	@echo "   untaring medio-$(MEDIO_VERSION).tar.gz"
+	@echo "*---------------------------------*"
+	@echo ""
+	tar -xzf medio-$(MEDIO_VERSION).tar.gz
+	@echo ""
+	cd medio-$(MEDIO_VERSION)/src && \
+	$(FFCXX) -auto medio.cpp $(CXXFLAGS_MED)  $(LDFLAGS_MED) $(LIBS_MED) -DMEDCOUPLING
+	@mkdir -p ${prefix}/lib
+	@cp medio-$(MEDIO_VERSION)/src/medio.so ${prefix}/lib/$(DEP1)	
 
 check-local:
 	@echo ""
@@ -110,6 +144,7 @@ clean-local:
 	@echo "*============================================================*"
 	@echo ""
 	rm  -f *~
+	rm  -f medio-$(MEDIO_VERSION)/src/medio.so
 
 maintainer-clean-local: clean-local
 	@echo ""
