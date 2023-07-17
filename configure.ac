@@ -63,9 +63,12 @@ AC_ARG_WITH([medfile],
         [medfile="$withval"], [medfile="no"])
 
 AC_ARG_WITH([medcoupling],
-	[  --with-medcoupling=        medcoupling root path : (e.g. --with-salome=/home/salome/INSTALL/MEDCOUPLING)],
+	[  --with-medcoupling=        medcoupling root path : (e.g. --with-medcoupling=/home/medcoupling/INSTALL/MEDCOUPLING)],
         [medcoupling="$withval"], [medcoupling="no"])
 
+AC_ARG_WITH([medio],
+	[  --with-medio=        medio root path : (e.g. --with-medio=/home/medio/lib)],
+        [medio="$withval"], [medio="no"])
 
 AC_ARG_WITH([dependencies],
 	[  --with-dependencies=         Dependencies installation : (e.g. --with-dependencies=yes)],
@@ -77,7 +80,7 @@ AM_CONDITIONAL([BUILDDEPENDENCIES], [test $dependencies != no])
 test "$dependencies" == "no" && AC_MSG_WARN([
 
  PDMT can automatically compile its dependencies
- MedCoupling, Medfile, Hdf5 for you.
+ MedCoupling, Medfile, Hdf5, medio, for you.
  In order to do so
 
  --with-dependencies=yes
@@ -87,7 +90,6 @@ test "$dependencies" == "no" && AC_MSG_WARN([
  simply add the MEDCOUPLING-$$VERSION-MPI.tar.gz
  in /ext folder.
  ])
-
 
 
 AU_ALIAS([ACX_MPI], [AX_MPI])
@@ -330,6 +332,9 @@ test $dependencies != no && AC_SUBST(PDMT_MEDCOUPLING_DIR,"$(pwd)/ext/MEDCOUPLIN
 test $dependencies != no && AC_SUBST(PDMT_HDF5_DIR,"$(pwd)/ext/MEDCOUPLING-9.11.0-MPI/BINARIES-CO7/hdf5"  )
 test $dependencies != no && AC_SUBST(PDMT_MEDFILE_DIR,"$(pwd)/ext/MEDCOUPLING-9.11.0-MPI/BINARIES-CO7/medfile"  )
 
+test $dependencies != no && AC_SUBST(PDMT_MEDIO_DIR,"$(pwd)/ext/medio-1.0/src/medio"  )
+test $medio != no && AC_SUBST(PDMT_MEDIO_DIR,"${medfile}/medio"  )
+
 AC_MSG_RESULT([])
 
 AC_SUBST(CXXFLAGS_MED,[$CXXFLAGS_MED])
@@ -400,6 +405,7 @@ AC_CONFIG_FILES([
  ext/Makefile
  src/Makefile
  test/Makefile
+ run/Makefile
 ])
 AC_OUTPUT
 
@@ -426,6 +432,9 @@ AC_MSG_RESULT([])
 test "$dependencies"          == "no"     &&  AC_MSG_RESULT([ Dependencies  compilation  : DISABLE])
 test "$dependencies"          != "no"     &&  AC_MSG_RESULT([ Dependencies  compilation  : ENABLED])
 AC_MSG_RESULT([])
+test "$medio"        != "no"                         						&&  AC_MSG_RESULT([ medio       : YES $medio])
+test "$medio"        == "no" -a "$dependencies" == "no"					&&  AC_MSG_RESULT([ medio       : NO])
+test "$dependencies" != "no"					                          &&  AC_MSG_RESULT([ medio       : YES $PDMT_MEDIO_DIR])
 test "$hdf5"         != "no"                         						&&  AC_MSG_RESULT([ Hdf5        : YES $hdf5])
 test "$hdf5"         == "no" -a "$dependencies" == "no"					&&  AC_MSG_RESULT([ Hdf5        : NO])
 test "$dependencies" != "no"					                          &&  AC_MSG_RESULT([ Hdf5        : YES $PDMT_HDF5_DIR])
