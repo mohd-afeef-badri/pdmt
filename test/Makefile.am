@@ -24,4 +24,4 @@ check-local: check-convex-hull
 	@echo ""
 
 check-convex-hull: UnitTestCovexHull.edp
-	./../../../psd-solve/PSD_Solve -np 1 UnitTestCovexHull.edp -v 0 -ns -nw > UnitTestCovexHull.log
+	$(FFMPI) -np 1 UnitTestCovexHull.edp -v 0 -ns -nw > UnitTestCovexHull.log

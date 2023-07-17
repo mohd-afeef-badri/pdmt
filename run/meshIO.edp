@@ -65,7 +65,7 @@ func mesh loadTheMesh(string meshName){
     }
 
     if( meshName.find(".med") > -1 ){
-      load "./../medio/cpp/medio"
+      load "./../../medio/src/medio"
       Th2D = loadmedmesh(meshName, meshname = "Mesh_1");
     }
 

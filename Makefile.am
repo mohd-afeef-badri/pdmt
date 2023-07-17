@@ -1,4 +1,4 @@
-SUBDIRS = cpp test
+SUBDIRS = ext src test
 
 clean-local:
 	@echo ""

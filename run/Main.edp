@@ -37,8 +37,8 @@
 *******************************************************************************/
 
 
-load    "./cpp/pdmt";                    // Load pdmt library
-load    "PETSc"
+load    "./../src/pdmt";                 // Load pdmt library
+//load    "PETSc";
 
 include "getARGV.idp";                   // Activate Commandline arguments
 include "meshIO.edp";                    // mesh loading and saving
@@ -71,8 +71,8 @@ include "meshIO.edp";                    // mesh loading and saving
   PhV   = $\{Vx, Vy\}_{i=1}^{N_n}$ = 2D polygon mesh vertices vector
 */
 
-    macro dimension()2// EOM
-    include "macro_ddm.idp"
+//    macro dimension()2// EOM
+//    include "macro_ddm.idp"
 
 func int run (){
 
@@ -87,7 +87,7 @@ func int run (){
 //-----------------------------------------------------------------------
 // build distributed mesh (ParMetis is used)
 //-----------------------------------------------------------------------
- buildDmesh(Th);                           // partition the mesh
+// buildDmesh(Th);                           // partition the mesh
 
 
 
@@ -334,8 +334,10 @@ macro vectorPushBack(V, p1, p2, p3)
 */
 
 
+
 // To write a .med mesh with/without edges
-  PdmtPolyMeshWrite(  ""+ThName+"_poly_"+mpirank+".med",
+//PdmtPolyMeshWrite(  ""+ThName+"_poly_"+mpirank+".med",
+  PdmtPolyMeshWrite(  ""+ThName+"_poly.med",
                       nodes = PhV,
                       cells = PhC,
                       edges = PhE,          // this is optional
@@ -343,7 +345,8 @@ macro vectorPushBack(V, p1, p2, p3)
                    );
 
 
-  PdmtPolyMeshWrite(  ""+ThName+"_poly_mpirank_"+mpirank+".vtk",
+//PdmtPolyMeshWrite(  ""+ThName+"_poly_mpirank_"+mpirank+".vtk",
+  PdmtPolyMeshWrite(  ""+ThName+"_poly_mpirank.vtk",
                       nodes = PhV,
                       cells = PhC,
                       edges = PhE,          // this is optional
