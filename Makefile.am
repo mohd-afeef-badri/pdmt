@@ -6,12 +6,16 @@ all-local:
 	@echo "*============================================================*"
 	@echo " pdmt version 0.1 compilation successfully done"
 	@echo ""
+if HAVEMED
 	@echo " In order to use medio please ensure to edit LD_LIBRARY_PATH"
 	@echo " use the following"
 	@echo ""
-if HAVEMED
 	@echo ' export LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$(hdf5)/lib:$(medfile)/lib:$(medcoupling)/lib'
-else !HAVEMED
+endif
+if HAVEDEPENDENCIES
+	@echo " In order to use medio please ensure to edit LD_LIBRARY_PATH"
+	@echo " use the following"
+	@echo ""
 	@echo ' export LD_LIBRARY_PATH=$$LD_LIBRARY_PATH:$(PDMT_HDF5_DIR)/lib:$(PDMT_MEDFILE_DIR)/lib:$(PDMT_MEDCOUPLING_DIR)/lib'
 endif
 	@echo ""
@@ -31,7 +35,9 @@ clean-local:
 
 install-exec-local:
 	@mkdir -p ${prefix}
+if HAVEDEPENDENCIES
 	@cp $(PDMT_MEDIO_DIR).so ${prefix}/lib/.
+endif
 
 maintainer-clean-local: clean-local
 	@echo ""

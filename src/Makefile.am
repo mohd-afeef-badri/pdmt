@@ -21,8 +21,13 @@ all-local: $(DEP1)
 	@echo " Compilation list $(LIST_COMPILE)"
 
 pdmt.$(SO_SUFFIX): pdmt.cpp  $(HPP_DEP)
+if HAVEMED
 	$(FFCXX) -auto -mpi pdmt.cpp $(CXXFLAGS_MED) $(LDFLAGS_MED) $(LIBS_MED) $(PDMT_DEBUG) -DMEDCOUPLING
-
+else !HAVEMED
+	$(FFCXX) -auto -mpi pdmt.cpp $(PDMT_DEBUG)
+	@echo ""
+	@echo " PDMT will not support med meshes "
+endif
 
 install-exec-local:
 	@mkdir -p ${prefix}/lib

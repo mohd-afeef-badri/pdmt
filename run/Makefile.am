@@ -6,9 +6,14 @@ all-local:
 	@echo "*============================================================*"
 	@echo ""
 
+
 install-exec-local:
 	@mkdir -p ${prefix}
-	cp meshIO.edp meshIO.edp.tmp && find . -name meshIO.edp.tmp -exec sed -i -e "s#$./../../medio/src/medio#/lib/medio#g" {} \; && \
+	cp meshIO.edp meshIO.edp.tmp && find . -name meshIO.edp.tmp -exec sed -i -e "s#$./../../medio/src/medio#/lib/medio#g" {} \;
+if !HAVEMED
+	find . -name meshIO.edp.tmp -exec sed -i -e "s#load \"./lib/medio\"##g" {} \;
+	find . -name meshIO.edp.tmp -exec sed -i -e "s#Th2D = loadmedmesh(meshName, meshname = \"Mesh_1\");#cout<<\"No med support\"<<endl;#g" {} \;
+endif
 	cp Main.edp Main.edp.tmp && find . -name Main.edp.tmp -exec sed -i -e "s#./../src/pdmt#./lib/pdmt#g" {} \;
 	mv meshIO.edp.tmp ${prefix}/meshIO.edp
 	mv Main.edp.tmp ${prefix}/Main.edp

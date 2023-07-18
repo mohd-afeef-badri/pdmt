@@ -345,7 +345,7 @@ macro vectorPushBack(V, p1, p2, p3)
 
 
 //PdmtPolyMeshWrite(  ""+ThName+"_poly_mpirank_"+mpirank+".vtk",
-  PdmtPolyMeshWrite(  ""+ThName+"_poly_mpirank.vtk",
+  PdmtPolyMeshWrite(  ""+ThName+"_poly.vtk",
                       nodes = PhV,
                       cells = PhC,
                       edges = PhE,          // this is optional
