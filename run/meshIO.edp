@@ -7,10 +7,7 @@
      Author(s): Mohd Afeef Badri
      Email    : mohd-afeef.badri@cea.com
      Date     : 22/02/2022
-     Comment  : The program finds dual of a triangular mesh and then
-                create a polyhedral mesh from the underlying Voronoi
-                frame. The reason to use  PSD  for this meshing tool
-                is the use of finite element framework for this tool
+     Comment  : contains fuctions to load meshes in diffrent format.
 
      -------------------------------------------------------------------
 

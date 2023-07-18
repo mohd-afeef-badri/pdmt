@@ -9,8 +9,7 @@
      Date     : 14/01/2022
      Comment  : The program finds dual of a triangular mesh and then
                 create a polyhedral mesh from the underlying Voronoi
-                frame. The reason to use  PSD  for this meshing tool
-                is the use of finite element framework for this tool
+                frame.
 
      -------------------------------------------------------------------
 
@@ -25,8 +24,8 @@
      USAGE:
      how to run
 
-       PSD_Solve_Seq Main.edp --debug --mesh ./name/of/mesh/mesh.msh
-       PSD_Solve_Seq Main.edp --mesh ./name/of/mesh/mesh.mesh
+       FreeFem++ Main.edp --debug --mesh ./name/of/mesh/mesh.msh
+       FreeFem++ Main.edp --mesh ./name/of/mesh/mesh.mesh
 
      command line parameters
 

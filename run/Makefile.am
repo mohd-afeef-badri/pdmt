@@ -19,7 +19,7 @@ clean-local:
 	@echo " Cleaning files in :"; pwd
 	@echo "*============================================================*"
 	@echo ""
-	rm  -f *~
+	rm  -f *~ *.tmp
 
 
 maintainer-clean-local: clean-local

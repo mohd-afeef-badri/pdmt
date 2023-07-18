@@ -7,7 +7,7 @@
      Author(s): Mohd Afeef Badri
      Email    : mohd-afeef.badri@cea.com
      Date     : 22/02/2022
-     Comment  : The program collects functions needed by the pdmt mesher
+     Comment  : The program collects functions needed by the PDMT mesher
 
      -------------------------------------------------------------------
 

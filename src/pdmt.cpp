@@ -7,10 +7,7 @@
      Author(s): Mohd Afeef Badri
      Email    : mohd-afeef.badri@cea.com
      Date     : 15/01/2022
-     Comment  : The program finds convex hull of a set of  points.
-                Original  program  found  online  was  adapted for
-                PDMT.  For explanation of the orientation()
-                www.geeksforgeeks.org/orientation-3-ordered-points
+     Comment  : PDMT interface for FreeFEM
 
      -------------------------------------------------------------------
 
