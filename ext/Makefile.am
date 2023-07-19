@@ -2,14 +2,14 @@
 # Version info
 #--------------------------------------------------------------------------------
 MEDCOUPLING_VERSION=9.11.0
-SALOME_VERSION=9.11.0
+MEDCOUPLING_MD5SUM=c49c1368abd07ba3ef34e7105123065d
 MEDIO_VERSION=1.0
 
 
 #--------------------------------------------------------------------------------
 # Download link #TODO
 #--------------------------------------------------------------------------------
-MEDCOUPLING_DOWNLOAD      =  wget -c https://files.salome-platform.org/Salome/Salome$(MEDCOUPLING_VERSION)/MEDCOUPLING-$(MEDCOUPLING_VERSION)-MPI.tar.gz \
+MEDCOUPLING_DOWNLOAD      =  wget -c https://files.salome-platform.org/Salome/Salome$(MEDCOUPLING_VERSION)/MEDCOUPLING-$(MEDCOUPLING_VERSION)-MPI-$(MEDCOUPLING_MD5SUM).tar.gz \
                        -O MEDCOUPLING-$(MEDCOUPLING_VERSION)-MPI.tar.gz
 
 MEDIO_DOWNLOAD            =  wget -c https://github.com/mohd-afeef-badri/medio/archive/refs/tags/$(MEDIO_VERSION).tar.gz \

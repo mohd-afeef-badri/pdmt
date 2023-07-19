@@ -1,5 +1,20 @@
 SUBDIRS = ext src run test
 
+AUTOMAKE_LIST=autom4te.cache \
+config.h \
+config.status \
+configure \
+install-sh \
+missing \
+Makefile \
+Makefile.in \
+aclocal.m4 \
+config.h.in \
+config.log \
+stamp-h1 \
+depcomp  \
+compile  \
+.swp
 
 all-local:
 	@echo ""
@@ -45,4 +60,4 @@ maintainer-clean-local: clean-local
 	@echo " Cleaning automake generated files"
 	@echo "*============================================================*"
 	@echo ""	
-	rm  -rf Makefile Makefile.in
+	rm  -rf Makefile Makefile.in ${AUTOMAKE_LIST}
