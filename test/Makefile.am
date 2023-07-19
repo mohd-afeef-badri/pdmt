@@ -19,7 +19,7 @@ maintainer-clean-local: clean-local
 check-local: check-convex-hull
 	@echo ""
 	@echo "*============================================================*"
-	@echo " performingg check for pdmt"
+	@echo " performing check for pdmt"
 	@echo "*============================================================*"
 	@echo ""
 

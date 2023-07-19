@@ -92,7 +92,11 @@ Changelog.html
 *.dylib
 *-e
 
+## AUTOMAKE CONFIGURE ##
 ./configure
+
+## BINARY FILE ##
+run/PDMT
 
 ## ext files ##
 ext/*.tar.gz

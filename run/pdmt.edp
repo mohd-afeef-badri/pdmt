@@ -40,7 +40,7 @@ load    "./../src/pdmt";                 // Load pdmt library
 //load    "PETSc";
 
 include "getARGV.idp";                   // Activate Commandline arguments
-include "meshIO.edp";                    // mesh loading and saving
+include "meshIO.idp";                    // mesh loading and saving
 
 //----------------------------------------------------------------------
 //       Nomenclature
