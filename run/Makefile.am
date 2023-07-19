@@ -95,7 +95,7 @@ clean-local:
 	@echo " Cleaning files in :"; pwd
 	@echo "*============================================================*"
 	@echo ""
-	rm  -f *~ *.tmp *.vtk *.mesh *.vtu *.med ./PDMT
+	rm  -f *~ *.tmp *.vtk *.mesh *.vtu *.med *.txt ./PDMT
 
 maintainer-clean-local: clean-local
 	@echo ""
