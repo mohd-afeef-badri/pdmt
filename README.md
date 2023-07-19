@@ -115,6 +115,31 @@ After installation is done you can simply launch the PDMT mesh conversion via a 
 PDMT --debug --mesh /your/mesh/file.mesh
 ```
 
+For generating meshes that are presented above you can use the mesh files provided in `msh` folder.  From top left clockwise:
+
+- for the disk mesh with five holes mesh is provided in `.vtk` format
+
+```bash
+PDMT --debug --mesh /msh/disk5holes.vtk
+```
+
+- for the pentagon mesh is provided in `.mesh` fromat
+
+```bash
+PDMT --debug --mesh /msh/pentagon.mesh
+```
+
+- for the triangle with one hole at the center mesh is provided in `.med` format
+
+```bash
+PDMT --debug --mesh /msh/triangle1hole.med
+```
+
+- for the disk with large decentered hole  mesh is provided in `.msh` format
+
+```bash
+PDMT --debug --mesh /msh/disk1hole.msh
+```
 
 
 
