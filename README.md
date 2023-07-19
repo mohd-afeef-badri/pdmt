@@ -103,11 +103,11 @@ By following these steps, you will have successfully compiled and installed PDMT
 
 ## Usage ##
 
-After installation is done you can simply lauch the PDMT mesh conversion via a TUI in the installation folder. The list of command line flags it accepts
+After installation is done you can simply launch the PDMT mesh conversion via a TUI in any folder of choice. The list of command line flags it accepts
 - `--debug`    : to print some verbos info about the meshing process
-- `--mesh`     : to provide mesh for conversion, it accepts .mesh, .msh, .vtk, .med(conditional) formats. also accepts ("square" or "circle")
+- `--mesh`     : to provide mesh for conversion, it accepts .mesh, .msh, .vtk, .med(conditional) formats. Also accepts ("square" or "circle").
 
-### Example 1:###
+### Example 1:
 ```
-FreeFem++ pdmt.edp --debug --mesh /your/mesh/file.mesh
+PDMT --debug --mesh /your/mesh/file.mesh
 ```
