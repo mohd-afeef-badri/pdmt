@@ -25,10 +25,11 @@ EXPORT_MED +=\nexport LD_LIBRARY_PATH="$${out_dir_Path}/$(medfile)lib:$${LD_LIBR
 EXPORT_MED +=\nexport MEDCOUPLING_ROOT_DIR="$${out_dir_Path}/$(medcoupling)"
 EXPORT_MED +=\nexport PATH="$${MEDCOUPLING_ROOT_DIR}/bin:$${PATH}"
 EXPORT_MED +=\nexport LD_LIBRARY_PATH="$${MEDCOUPLING_ROOT_DIR}/lib:$${LD_LIBRARY_PATH}"
-else !HAVEMED
-EXPORT_MED  =
 endif
 
+if !WITHMEDIO
+EXPORT_MED  =
+endif
 
 all-local: PDMT
 	@echo ""
@@ -42,8 +43,8 @@ install-exec-local:
 	@mkdir -p ${prefix}
 	@mkdir -p ${prefix}/lib
 	@mkdir -p ${prefix}/bin
-	cp meshIO.idp meshIO.idp.tmp && find . -name meshIO.idp.tmp -exec sed -i -e "s#$./../../medio/src/medio#medio#g" {} \;
-if !HAVEMED
+	cp meshIO.idp meshIO.idp.tmp
+if !WITHMEDIO
 	find . -name meshIO.idp.tmp -exec sed -i -e "s#load \"medio\"##g" {} \;
 	find . -name meshIO.idp.tmp -exec sed -i -e "s#Th2D = loadmedmesh(meshName, meshname = \"Mesh_1\");#cout<<\"No med support\"<<endl;#g" {} \;
 endif
@@ -94,7 +95,7 @@ clean-local:
 	@echo " Cleaning files in :"; pwd
 	@echo "*============================================================*"
 	@echo ""
-	rm  -f *~ *.tmp *.vtk *.mesh *.vtu *.med
+	rm  -f *~ *.tmp *.vtk *.mesh *.vtu *.med ./PDMT
 
 maintainer-clean-local: clean-local
 	@echo ""
@@ -102,5 +103,5 @@ maintainer-clean-local: clean-local
 	@echo " Cleaning automake generated files"
 	@echo "*============================================================*"
 	@echo ""
-	rm  -rf Makefile Makefile.in ./PDMT
+	rm  -rf Makefile Makefile.in
 

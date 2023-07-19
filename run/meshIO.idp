@@ -61,6 +61,10 @@ func mesh loadTheMesh(string meshName){
       Th2D = gmshload(meshName);
     }
 
+    if( meshName.find(".med") > -1 ){
+      load "medio"
+      Th2D = loadmedmesh(meshName, meshname = "Mesh_1");
+    }
 
     if( meshName.find(".mesh") > -1 ){
       Th2D = readmesh(meshName);
