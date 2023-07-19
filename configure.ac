@@ -355,6 +355,9 @@ you did not provide the flags:
     --with-medfile
     --with-medcoupling
  ])
+
+AM_CONDITIONAL([WITHMEDIO], [test $hdf5 != no -a $medfile != no -a $medcoupling != no])
+AM_CONDITIONAL([WITHMEDIO], [test $dependencies != no])
 dnl ---------------------------------------------------------------
 
 
