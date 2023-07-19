@@ -5,7 +5,7 @@ clean-local:
 	@echo " Cleaning files in :"; pwd
 	@echo "*============================================================*"
 	@echo ""
-	rm  -f *~
+	rm  -f *~ *.log
 
 
 maintainer-clean-local: clean-local
