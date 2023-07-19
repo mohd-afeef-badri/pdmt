@@ -111,3 +111,9 @@ After installation is done you can simply launch the PDMT mesh conversion via a 
 ```
 PDMT --debug --mesh /your/mesh/file.mesh
 ```
+
+![image](https://github.com/mohd-afeef-badri/pdmt/assets/52162083/ad36705c-47d2-4326-9987-4eccc40fb818) ![image](https://github.com/mohd-afeef-badri/pdmt/assets/52162083/58aeb5e8-c49b-4527-add9-c2afd738877d) ![image](https://github.com/mohd-afeef-badri/pdmt/assets/52162083/a1e4e0e1-bc7f-4348-a0c2-1feb51fabebb) ![image](https://github.com/mohd-afeef-badri/pdmt/assets/52162083/d8cb4c44-4cd5-4aef-a788-b5ded2fb26f1)
+
+
+
+
