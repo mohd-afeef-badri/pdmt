@@ -24,4 +24,4 @@ jobs:
     - name: make
       run: make && sudo make install
     - name: make check
-      run: export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/runner/work/medio/medio/ext/MEDCOUPLING-9.11.0-MPI/BINARIES-CO7/hdf5/lib:/home/runner/work/medio/medio/ext/MEDCOUPLING-9.11.0-MPI/BINARIES-CO7/medfile/lib:/home/runner/work/medio/medio/ext/MEDCOUPLING-9.11.0-MPI/INSTALL/MEDCOUPLING/lib && make check
+      run: export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/runner/work/pdmt/pdmt/ext/MEDCOUPLING-9.11.0-MPI/BINARIES-CO7/hdf5/lib:/home/runner/work/pdmt/pdmt/ext/MEDCOUPLING-9.11.0-MPI/BINARIES-CO7/medfile/lib:/home/runner/work/pdmt/pdmt/ext/MEDCOUPLING-9.11.0-MPI/INSTALL/MEDCOUPLING/lib && make check
