@@ -24,7 +24,7 @@
 //-----------------------------------------------------------------------------
 //
 // USAGE:
-//    The `--mesh` argument provides the mesh in .msh | .mesh | .vtk for this
+//    The `--mesh` argument provides the mesh in .msh|.mesh|.vtk|.med for this
 //    function. In this case we use  `mesh Th = loadTheMesh(ThName);`
 //
 //    The user can also directly provide the  mesh  via a  string argument to
@@ -35,7 +35,7 @@
 //
 //----------------------------------------------------------------------------
 
-func mesh loadTheMesh(string meshName){
+func mesh loadTheMesh(string meshName, string medMeshName){
 
 //----------------------------------------------------------------------------
 // mesh Th2D:
@@ -46,8 +46,12 @@ func mesh loadTheMesh(string meshName){
 
     mesh Th2D;
 
-    if(   (meshName.find(".mesh") == -1 && meshName.find(".msh") == -1 && meshName.find(".vtk") == -1 && meshName.find(".med") == -1)
-        &&(meshName == "square" && meshName == "circle" )){
+    if(   ( meshName.find(".mesh") == -1 && 
+            meshName.find(".msh")  == -1 && 
+            meshName.find(".vtk")  == -1 && 
+            meshName.find(".med")  == -1   )
+        && (meshName == "square" && meshName == "circle")
+      ) {
       cout << " ******************* ERROR ***********************\n"
            << "  Error in input mesh                             \n"
            << "  PDMT only accepts '.msh' '.mesh' '.vtk' formats \n"
@@ -63,7 +67,7 @@ func mesh loadTheMesh(string meshName){
 
     if( meshName.find(".med") > -1 ){
       load "medio"
-      Th2D = loadmedmesh(meshName, meshname = "Mesh_1");
+      Th2D = loadmedmesh(meshName, meshname = medMeshName);
     }
 
     if( meshName.find(".mesh") > -1 ){
