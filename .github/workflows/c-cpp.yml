@@ -1,0 +1,27 @@
+name: C/C++ CI
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build:
+
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Install dependencies
+      run: |
+        sudo apt-get update
+        sudo apt-get install mpich
+        wget https://github.com/FreeFem/FreeFem-sources/releases/download/v4.13/FreeFEM-4.13-amd64-ubuntu20.04.deb
+        sudo apt install ./FreeFEM-4.13-amd64-ubuntu20.04.deb
+    - name: configure
+      run: autoreconf -i && ./configure --with-dependencies
+    - name: make
+      run: make && sudo make install
+    - name: make check
+      run: export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/runner/work/pdmt/pdmt/ext/MEDCOUPLING-9.11.0-MPI/BINARIES-CO7/hdf5/lib:/home/runner/work/pdmt/pdmt/ext/MEDCOUPLING-9.11.0-MPI/BINARIES-CO7/medfile/lib:/home/runner/work/pdmt/pdmt/ext/MEDCOUPLING-9.11.0-MPI/INSTALL/MEDCOUPLING/lib && make check
