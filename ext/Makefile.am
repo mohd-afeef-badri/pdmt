@@ -50,7 +50,7 @@ endif
 all-local: $(LIST_MAKE_EXECUTE)
 	@echo ""
 
-install-exec-local: medcoupling-install medio-install
+install-exec-local: medio-install
 	@echo ""
 	@echo "*============================================================*"
 	@echo "   external depndencies intallation phase "
@@ -72,7 +72,7 @@ download-dependencies:
 #  - User can override download by providing ext/MEDCOUPLING-$(MEDCOUPLING_VERSION)-MPI.tar.gz
 #--------------------------------------------------------------------------------
 
-medcoupling-build: MEDCOUPLING-$(MEDCOUPLING_VERSION)-MPI/INSTALL/MEDCOUPLING/lib/libmedcoupling.so
+medcoupling-build: MEDCOUPLING-$(MEDCOUPLING_VERSION)-MPI/INSTALL/MEDCOUPLING/lib/libmedcoupling.so medcoupling-install
 
 MEDCOUPLING-$(MEDCOUPLING_VERSION)-MPI/INSTALL/MEDCOUPLING/lib/libmedcoupling.so: MEDCOUPLING-$(MEDCOUPLING_VERSION)-MPI.tar.gz
 	@echo ""
