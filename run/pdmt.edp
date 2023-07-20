@@ -32,6 +32,7 @@
        --debug    : to print some verbos info
        --mesh     : to provide external mesh (accepts .mesh, .msh, .vtk)
                     also accepts ("square" or "circle")
+       --med_mesh_name     : to provide name of mesh in med file
 
 *******************************************************************************/
 
@@ -78,8 +79,9 @@ func int run (){
 //-----------------------------------------------------------------------
 // load mesh
 //-----------------------------------------------------------------------
- string ThName = getARGV( "--mesh" , "circle" );    // Name of the mesh
- mesh   Th     = loadTheMesh( ThName );             // function in meshIO.edp
+ string ThName      = getARGV( "--mesh" , "circle" );           // Name of the mesh
+ string MedMeshName = getARGV( "--med_mesh_name" , "Mesh_1" );  // Name of the mesh
+ mesh   Th          = loadTheMesh( ThName , MedMeshName );      // function in meshIO.edp
 
 
 
