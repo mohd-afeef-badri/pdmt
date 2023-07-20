@@ -50,6 +50,13 @@ endif
 all-local: $(LIST_MAKE_EXECUTE)
 	@echo ""
 
+install-exec-local: medcoupling-install medio-install
+	@echo ""
+	@echo "*============================================================*"
+	@echo "   external depndencies intallation phase "
+	@echo "*============================================================*"
+	@echo ""
+	
 
 download-dependencies:
 	@if [ ! -f MEDCOUPLING-$(MEDCOUPLING_VERSION)-MPI.tar.gz ]; then \
@@ -99,8 +106,17 @@ MEDCOUPLING-$(MEDCOUPLING_VERSION)-MPI/INSTALL/MEDCOUPLING/lib/libmedcoupling.so
 	cd ./../BUILD && \
 	source ./../env_launch.sh && \
 	cmake  $(CMAKE_FLAGS_MEDCOUPLING) ./../SOURCES/MEDCOUPLING && \
-	make -j16 && \
-	make install
+	make -j16
+
+medcoupling-install: MEDCOUPLING-$(MEDCOUPLING_VERSION)-MPI/INSTALL/MEDCOUPLING/lib/libmedcoupling.so	
+if BUILDDEPENDENCIES
+	@echo ""
+	@echo "*---------------------------------*"
+	@echo "   installing medcoupling"
+	@echo "*---------------------------------*"
+	@echo ""
+	cd MEDCOUPLING-$(MEDCOUPLING_VERSION)-MPI/BUILD && source ./../env_launch.sh && make install -j16 
+endif
 
 #--------------------------------------------------------------------------------
 # MEDIO installation
@@ -127,8 +143,17 @@ medio-$(MEDIO_VERSION)/src/medio.so: medio-$(MEDIO_VERSION).tar.gz
 	@echo ""
 	cd medio-$(MEDIO_VERSION)/src && \
 	$(FFCXX) -auto medio.cpp $(CXXFLAGS_MED)  $(LDFLAGS_MED) $(LIBS_MED) -DMEDCOUPLING
+
+medio-install:  medio-$(MEDIO_VERSION)/src/medio.so
+if BUILDDEPENDENCIES
+	@echo ""
+	@echo "*---------------------------------*"
+	@echo "   installing medio"
+	@echo "*---------------------------------*"
+	@echo ""
 	@mkdir -p ${prefix}/lib
 	@cp medio-$(MEDIO_VERSION)/src/medio.so ${prefix}/lib/$(DEP1)	
+endif
 
 check-local:
 	@echo ""
@@ -153,10 +178,3 @@ maintainer-clean-local: clean-local
 	@echo "*============================================================*"
 	@echo ""
 	rm  -rf Makefile Makefile.in
-
-install-exec-local:
-	@echo ""
-	@echo "*============================================================*"
-	@echo " Nothing to install here:"
-	@echo "*============================================================*"
-	@echo ""
