@@ -38,5 +38,5 @@ test-mesh:
 
 test-med:
 if WITHMEDIO
-	./../run/PDMT --debug --mesh ./../msh/triangle1hole.med
+	./../run/PDMT --debug --mesh ./../msh/triangle1hole.med --med_mesh_name Mesh_1
 endif

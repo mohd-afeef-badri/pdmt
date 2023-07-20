@@ -46,7 +46,7 @@ install-exec-local:
 	cp meshIO.idp meshIO.idp.tmp
 if !WITHMEDIO
 	find . -name meshIO.idp.tmp -exec sed -i -e "s#load \"medio\"##g" {} \;
-	find . -name meshIO.idp.tmp -exec sed -i -e "s#Th2D = loadmedmesh(meshName, meshname = \"Mesh_1\");#cout<<\"No med support\"<<endl;#g" {} \;
+	find . -name meshIO.idp.tmp -exec sed -i -e "s#Th2D = loadmedmesh(meshName, meshname = medMeshName);#cout<<\"No med support PDMT not compiled with medio\"<<endl;#g" {} \;
 endif
 	cp pdmt.edp pdmt.edp.tmp && find . -name pdmt.edp.tmp -exec sed -i -e "s#./../src/pdmt#pdmt#g" {} \;
 	mv meshIO.idp.tmp ${prefix}/lib/meshIO.idp
