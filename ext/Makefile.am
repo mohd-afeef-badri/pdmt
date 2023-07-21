@@ -47,10 +47,16 @@ LIST_MAKE_EXECUTE =
 endif
 
 
+if BUILDDEPENDENCIES
+LIST_MAKE_INSTALL = medio-install
+else
+LIST_MAKE_INSTALL =
+endif
+
 all-local: $(LIST_MAKE_EXECUTE)
 	@echo ""
 
-install-exec-local: medio-install
+install-exec-local: $(LIST_MAKE_INSTALL)
 	@echo ""
 	@echo "*============================================================*"
 	@echo "   external depndencies intallation phase "
@@ -109,14 +115,13 @@ MEDCOUPLING-$(MEDCOUPLING_VERSION)-MPI/INSTALL/MEDCOUPLING/lib/libmedcoupling.so
 	make -j16
 
 medcoupling-install: MEDCOUPLING-$(MEDCOUPLING_VERSION)-MPI/INSTALL/MEDCOUPLING/lib/libmedcoupling.so	
-if BUILDDEPENDENCIES
 	@echo ""
 	@echo "*---------------------------------*"
 	@echo "   installing medcoupling"
 	@echo "*---------------------------------*"
 	@echo ""
 	cd MEDCOUPLING-$(MEDCOUPLING_VERSION)-MPI/BUILD && source ./../env_launch.sh && make install -j16 
-endif
+
 
 #--------------------------------------------------------------------------------
 # MEDIO installation
