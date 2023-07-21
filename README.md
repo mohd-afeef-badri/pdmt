@@ -133,7 +133,7 @@ PDMT --debug --mesh /msh/pentagon.mesh
 - for the triangle with one hole at the center mesh is provided in `.med` format
 
 ```bash
-PDMT --debug --mesh /msh/triangle1hole.med
+PDMT --debug --mesh /msh/triangle1hole.med --med_mesh_name Mesh_1
 ```
 
 - for the disk with large decentered hole  mesh is provided in `.msh` format
