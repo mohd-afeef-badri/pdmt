@@ -1,4 +1,4 @@
-name: UB_22.04_WITH_MED
+name: UB22.04_WITH_MED
 
 on:
   push:
