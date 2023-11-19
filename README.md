@@ -1,4 +1,4 @@
-![image](https://github.com/mohd-afeef-badri/pdmt/assets/52162083/50d292d9-9fff-4e63-85f2-e310e01e5c16)
+![image](https://github.com/mohd-afeef-badri/pdmt/assets/52162083/bc7f98a6-7631-439d-934f-7daa49250721)
 
 PDMT, acryonm for Parallel Dual Meshing Tool, is a polyhedral meshing/remsehing tool. It harnesses the power of the finite element framework (FreeFEM) to facilitate the seamless transformation of a triangular or tetrahedral mesh into a more versatile and efficient polyhedral mesh. PDMT adeptly identifies the dual structure of the original triangular mesh, thereby establishing a solid foundation for the subsequent creation of the polyhedral mesh. The underlying Voronoi frame is utilized to form this new polyhedral mesh, ensuring optimal utilization of computational resources and enhancing the mesh's adaptability for a diverse range of engineering simulations and scientific analyses.
 
@@ -109,7 +109,11 @@ After installation is done you can simply launch the PDMT mesh conversion via a 
 - `--debug`    : to print some verbos info about the meshing process
 - `--mesh`     : to provide mesh for conversion, it accepts .mesh, .msh, .vtk, .med(conditional) formats. Also accepts ("square" or "circle").
 
-![image](https://github.com/mohd-afeef-badri/pdmt/assets/52162083/ad36705c-47d2-4326-9987-4eccc40fb818) ![image](https://github.com/mohd-afeef-badri/pdmt/assets/52162083/58aeb5e8-c49b-4527-add9-c2afd738877d) ![image](https://github.com/mohd-afeef-badri/pdmt/assets/52162083/a1e4e0e1-bc7f-4348-a0c2-1feb51fabebb) ![image](https://github.com/mohd-afeef-badri/pdmt/assets/52162083/d8cb4c44-4cd5-4aef-a788-b5ded2fb26f1)
+
+
+![image](https://github.com/mohd-afeef-badri/pdmt/assets/52162083/8ae5798d-5a4f-474d-ae39-c7207085f7bd)
+![image](https://github.com/mohd-afeef-badri/pdmt/assets/52162083/03f0e8ae-75dd-4823-870b-4c65fab363fe)
+![image](https://github.com/mohd-afeef-badri/pdmt/assets/52162083/9052499a-3993-425e-a111-2f94c4ca8798)
 
 ### Example 1:
 ```
