@@ -1,16 +1,15 @@
 #--------------------------------------------------------------------------------
 # Version info
 #--------------------------------------------------------------------------------
-MEDCOUPLING_VERSION=9.11.0
-MEDCOUPLING_MD5SUM=c49c1368abd07ba3ef34e7105123065d
+MEDCOUPLING_VERSION=9.12.0
+MEDCOUPLING_MD5SUM=b67866e8d294581a7102b54d650b59ab
 MEDIO_VERSION=1.0
-
 
 #--------------------------------------------------------------------------------
 # Download link #TODO
 #--------------------------------------------------------------------------------
-MEDCOUPLING_DOWNLOAD      =  wget -c https://files.salome-platform.org/Salome/Salome$(MEDCOUPLING_VERSION)/MEDCOUPLING-$(MEDCOUPLING_VERSION)-MPI-$(MEDCOUPLING_MD5SUM).tar.gz \
-                       -O MEDCOUPLING-$(MEDCOUPLING_VERSION)-MPI.tar.gz
+MEDCOUPLING_DOWNLOAD      =  wget -c https://files.salome-platform.org/Salome/Salome$(MEDCOUPLING_VERSION)/MEDCOUPLING-$(MEDCOUPLING_VERSION)-$(MEDCOUPLING_MD5SUM).tar.gz \
+                       -O MEDCOUPLING-$(MEDCOUPLING_VERSION).tar.gz
 
 MEDIO_DOWNLOAD            =  wget -c https://github.com/mohd-afeef-badri/medio/archive/refs/tags/$(MEDIO_VERSION).tar.gz \
                        -O medio-$(MEDIO_VERSION).tar.gz
@@ -65,7 +64,7 @@ install-exec-local: $(LIST_MAKE_INSTALL)
 	
 
 download-dependencies:
-	@if [ ! -f MEDCOUPLING-$(MEDCOUPLING_VERSION)-MPI.tar.gz ]; then \
+	@if [ ! -f MEDCOUPLING-$(MEDCOUPLING_VERSION).tar.gz ]; then \
 		$(MEDCOUPLING_DOWNLOAD); \
 	fi
 	@if [ ! -f medio-$(MEDIO_VERSION).tar.gz ]; then \
@@ -75,31 +74,31 @@ download-dependencies:
 #--------------------------------------------------------------------------------
 # MEDCOUPLING installation
 #  - Download from wget version MEDCOUPLING_VERSION
-#  - User can override download by providing ext/MEDCOUPLING-$(MEDCOUPLING_VERSION)-MPI.tar.gz
+#  - User can override download by providing ext/MEDCOUPLING-$(MEDCOUPLING_VERSION).tar.gz
 #--------------------------------------------------------------------------------
 
-medcoupling-build: MEDCOUPLING-$(MEDCOUPLING_VERSION)-MPI/INSTALL/MEDCOUPLING/lib/libmedcoupling.so medcoupling-install
+medcoupling-build: MEDCOUPLING-$(MEDCOUPLING_VERSION)/INSTALL/MEDCOUPLING/lib/libmedcoupling.so medcoupling-install
 
-MEDCOUPLING-$(MEDCOUPLING_VERSION)-MPI/INSTALL/MEDCOUPLING/lib/libmedcoupling.so: MEDCOUPLING-$(MEDCOUPLING_VERSION)-MPI.tar.gz
+MEDCOUPLING-$(MEDCOUPLING_VERSION)/INSTALL/MEDCOUPLING/lib/libmedcoupling.so: MEDCOUPLING-$(MEDCOUPLING_VERSION).tar.gz
 	@echo ""
 	@echo "*============================================================*"
 	@echo " MEDCOUPLING installation began for you be patient:   "
 	@echo "   - Download using wget version $(MEDCOUPLING_VERSION)"
-	@echo "   - to overide provide ext/MEDCOUPLING-$(MEDCOUPLING_VERSION)-MPI.tar.gz"
+	@echo "   - to overide provide ext/MEDCOUPLING-$(MEDCOUPLING_VERSION).tar.gz"
 	@echo "*============================================================*"
 	@echo ""
 	@echo ""
 	@echo "*---------------------------------*"
-	@echo "   untaring MEDCOUPLING-$(MEDCOUPLING_VERSION)-MPI.tar.gz"
+	@echo "   untaring MEDCOUPLING-$(MEDCOUPLING_VERSION).tar.gz"
 	@echo "*---------------------------------*"
 	@echo ""
-	tar -xzf MEDCOUPLING-$(MEDCOUPLING_VERSION)-MPI.tar.gz
+	tar -xzf MEDCOUPLING-$(MEDCOUPLING_VERSION).tar.gz
 	@echo ""
 	@echo "*---------------------------------*"
 	@echo "   creating BUILD and INSTALL directories"
 	@echo "*---------------------------------*"
 	@echo ""
-	cd MEDCOUPLING-$(MEDCOUPLING_VERSION)-MPI   && \
+	cd MEDCOUPLING-$(MEDCOUPLING_VERSION)   && \
 	mkdir -p BUILD   && \
 	mkdir -p INSTALL
 	@echo ""
@@ -107,20 +106,20 @@ MEDCOUPLING-$(MEDCOUPLING_VERSION)-MPI/INSTALL/MEDCOUPLING/lib/libmedcoupling.so
 	@echo "   installing medcoupling"
 	@echo "*---------------------------------*"
 	@echo ""
-	cd MEDCOUPLING-$(MEDCOUPLING_VERSION)-MPI/SOURCES       && \
+	cd MEDCOUPLING-$(MEDCOUPLING_VERSION)/SOURCES       && \
 	tar -xzf ./../ARCHIVES/MEDCOUPLING.tgz && \
 	cd ./../BUILD && \
 	source ./../env_launch.sh && \
 	cmake  $(CMAKE_FLAGS_MEDCOUPLING) ./../SOURCES/MEDCOUPLING && \
 	make -j16
 
-medcoupling-install: MEDCOUPLING-$(MEDCOUPLING_VERSION)-MPI/INSTALL/MEDCOUPLING/lib/libmedcoupling.so	
+medcoupling-install: MEDCOUPLING-$(MEDCOUPLING_VERSION)/INSTALL/MEDCOUPLING/lib/libmedcoupling.so
 	@echo ""
 	@echo "*---------------------------------*"
 	@echo "   installing medcoupling"
 	@echo "*---------------------------------*"
 	@echo ""
-	cd MEDCOUPLING-$(MEDCOUPLING_VERSION)-MPI/BUILD && source ./../env_launch.sh && make install -j16 
+	cd MEDCOUPLING-$(MEDCOUPLING_VERSION)/BUILD && source ./../env_launch.sh && make install -j all
 
 
 #--------------------------------------------------------------------------------
