@@ -57,7 +57,8 @@ PDMT:
 	cat $(FF_IS) > PDMT
 	find . -name PDMT -exec sed -i -e 's#mpirun=mpirun#mpirun=mpirun;\n$(EXPORT_PDMT)$(EXPORT_MED)\n#g' {} \;
 	find . -name PDMT -exec sed -i -e 's#mpi_run_option=\"--oversubscribe\"#mpi_run_option=\"--oversubscribe -np 1 FreeFem++-mpi ${prefix}/lib/pdmt.edp\"#g' {} \;
-	chmod a+x PDMT
+	chmod a+x ./PDMT
+	less ./PDMT
 
 check-local:
 	@echo ""
