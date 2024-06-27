@@ -36,14 +36,6 @@ void writePolyTyp(std::string const * fineName, KNM < double > * nodesPoly, KN <
     for (int i = 0; i < TotalCells; i++)
       TotalCellConnectivity += ( * CellsPoly)(i).N() + 1;
 
-    if (EdgesPoly) {
-      int TotalEdges = EdgesPoly -> N();
-      for (int i = 0; i < TotalEdges; i++)
-        TotalCellConnectivity += ( * EdgesPoly)(i).N() + 1;
-
-      TotalVTKConnectionList += TotalEdges;
-    }
-
     polyWrite << " cells\n          " << TotalCells << "\n";
 
     for (int i = 0; i < TotalCells; i++) {
