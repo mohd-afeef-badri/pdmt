@@ -30,7 +30,7 @@
      command line parameters
 
        --debug    : to print some verbos info
-       --mesh     : to provide external mesh (accepts .mesh, .msh, .vtk)
+       --mesh     : to provide external mesh (accepts .mesh, .msh, .vtk, .typ)
                     also accepts ("square" or "circle")
        --med_mesh_name     : to provide name of mesh in med file
 
@@ -355,6 +355,13 @@ macro vectorPushBack(V, p1, p2, p3)
                    );
 
   PdmtPolyMeshWrite(  ""+ThName+"_poly.vtu",
+                      nodes = PhV,
+                      cells = PhC,
+                      edges = PhE,          // this is optional
+                      labels = PhELabels    // this is optional
+                   );
+
+  PdmtPolyMeshWrite(  ""+ThName+"_poly.typ2",
                       nodes = PhV,
                       cells = PhC,
                       edges = PhE,          // this is optional

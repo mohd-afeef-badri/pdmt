@@ -26,6 +26,7 @@
 
 #include <mpi.h>
 
+#include "typWriter.hpp"
 #include "vtkWriter.hpp"
 
 #ifdef MEDCOUPLING
