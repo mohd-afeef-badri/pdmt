@@ -4,6 +4,7 @@ HPP_DEP = pdmtFunctions.hpp \
 convexHull.hpp \
 polyMeshWrite.hpp \
 vtkWriter.hpp  \
+typWriter.hpp  \
 medWriter.hpp
 
 
