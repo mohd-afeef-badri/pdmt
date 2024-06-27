@@ -139,6 +139,10 @@ AnyType polyMeshWrite_Op<K>::operator()(Stack stack) const
     //std::size_t writeVtkFile = (fullFileName).find(".vtk");
     //std::size_t writeMedFile = (fullFileName).find(".vtk");
 
+    if ( (fullFileName).find(".typ2") != std::string::npos){
+     writePolyTyp(inputfile,nodesPoly,CellsPoly);
+    }
+
     if ( (fullFileName).find(".vtk") != std::string::npos){
      writePolyVtk(inputfile,nodesPoly,CellsPoly,EdgesPoly, LabelsPoly);
     }

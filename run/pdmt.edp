@@ -363,9 +363,7 @@ macro vectorPushBack(V, p1, p2, p3)
 
   PdmtPolyMeshWrite(  ""+ThName+"_poly.typ2",
                       nodes = PhV,
-                      cells = PhC,
-                      edges = PhE,          // this is optional
-                      labels = PhELabels    // this is optional
+                      cells = PhC
                    );
 
   return 0;
