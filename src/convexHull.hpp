@@ -200,7 +200,7 @@ int PdmtConvexHull(KN<double> *const & px, KN<double> *const & py, KN<long> *con
   cout << " PdmtConvexHull BEFORE C-HULL FUNCTION" << endl;
   cout << "--------------------------------------" << endl;
   cout << "x" << "\t" << "y" << "\t" << "n" << "\n\n" << endl;
-  
+
   for(long int i=0; i<nn; i++)
     cout << points[i].x << "\t" << points[i].y << "\t" << points[i].nn << "\n" << endl;
 
@@ -227,7 +227,7 @@ int PdmtConvexHull(KN<double> *const & px, KN<double> *const & py, KN<long> *con
 
   return 0;
 }
-  
+
 int PdmtTest()
 {
   Point2D points[6];

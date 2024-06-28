@@ -24,8 +24,8 @@
      USAGE:
      how to run
 
-       FreeFem++ Main.edp --debug --mesh ./name/of/mesh/mesh.msh
-       FreeFem++ Main.edp --mesh ./name/of/mesh/mesh.mesh
+       PDMT --debug --mesh ./name/of/mesh/mesh.msh
+       PDMT --mesh ./name/of/mesh/mesh.mesh
 
      command line parameters
 
@@ -79,54 +79,14 @@ include "meshIO.idp";                    // mesh loading and saving
 
 func int run (){
 
- bool versionPDMT =  usedARGV("--version") != -1;
-
- if(versionPDMT){
-  verbosity = 0;
-  cout << "\n\n\n\n===================================================================\n\n";
- 
-  cout << "  PDMT Version 0.2 " << endl;
-  cout << "    Copyright (C) CEA 2022 - 2024 "<< endl;
-  cout << "                                                                   " << endl;
-  cout << "    This is free software; see the source for copying conditions.  " << endl;
-  cout << "    There is NO warranty; not even for MERCHANTABILITY or FITNESS  " << endl;
-  cout << "    FOR A PARTICULAR PURPOSE.                                      " << endl;
-  cout << "                                                                   " << endl;
-  cout << "    Report bugs/issues ::    mohd-afeef.badri@cea.fr               " << endl;
-  cout << "                                                                   " << endl;
-  cout << "===================================================================" << endl;
-  
-  return 0;
+  if (usedARGV("--version") != -1) {
+    PdmtVersion();
+    return 0;
   }
-  
- bool helpPDMT =  usedARGV("--help") != -1;
 
- if(helpPDMT){
-  cout << "\n\n\n\n===================================================================\n";
-  cout << "  PDMT Version 0.2 " << endl;
-  cout << "    Copyright (C) CEA 2022 - 2024 "<< endl;
-  cout << "                                                                   " << endl;
-  cout << "    This is free software; see the source for copying conditions.  " << endl;
-  cout << "    There is NO warranty; not even for MERCHANTABILITY or FITNESS  " << endl;
-  cout << "    FOR A PARTICULAR PURPOSE.                                      " << endl;
-  cout << "                                                                   " << endl;
-  cout << "    Report bugs/issues ::    mohd-afeef.badri@cea.fr               " << endl;
-  cout << "                                                                   " << endl;
-  cout << "\n\n===================================================================" << endl;
-  cout << "     command line parameters\n"
-       << "\n"
-       << "      --version  : to print version info\n"
-       << "      --help     : to print some help info\n"
-       << "      --debug    : to print some verbos info\n"
-       << "      --mesh     : to provide input mesh\n" 
-       << "                   (accepts .mesh, .msh, .vtk, .med)\n"
-       << "                   also accepts (\"square\" or \"circle\")\n"
-       << "      --out_mesh : to provide saved mesh name\n" 
-       << "                   (accepts .med, .vtu, .vtk, .typ2)\n"
-       << "       --med_mesh_name     : to provide name of mesh in med file\n";
-  cout << "\n\n\n\n===================================================================\n";
- 
-  return 0;
+  if (usedARGV("--help") != -1) {
+    PdmtHelp();
+    return 0;
   }
  
 //-----------------------------------------------------------------------
@@ -391,19 +351,24 @@ macro vectorPushBack(V, p1, p2, p3)
 
 if (ThNameOut != "PDMT_POLY_MESH_"){
 
+    if (ThNameOut != "PDMT_POLY_MESH_") {
+        if (ThNameOut.find(".med") == -1 &&
+            ThNameOut.find(".vtu") == -1 &&
+            ThNameOut.find(".vtk") == -1 &&
+            ThNameOut.find(".typ2") == -1) {
 
-    if(   ( ThNameOut.find(".med") == -1 &&
-            ThNameOut.find(".vtu")  == -1 &&
-            ThNameOut.find(".vtk")  == -1 &&
-            ThNameOut.find(".typ2")  == -1   )
-        && (ThNameOut == "square" && ThNameOut == "circle")
-      ) {
-      cout << " ******************* ERROR *************************\n"
-           << "  Error in input mesh                             \n"
-           << "  PDMT only accepts '.med' '.vtu' '.vtk' 'ty2' formats \n"
-           << " ******************* ERROR *************************\n"
-           << endl;
-      exit(1111);
+            cout << "\n\n******************* ERROR *************************\n\n"
+                 << "  Error in output mesh format\n"
+                 << "  PDMT can only output meshes in the following formats:\n\n"
+                 << "           .med  - SALOME's mesh format\n"
+                 << "           .vtu  - VTK XML format for unstructured grids\n"
+                 << "           .vtk  - VTK legacy format for structured and unstructured grids\n"
+                 << "           .typ2 - FCVA benchmark mesh format (description needed)\n"
+                 << "\n  Please ensure that the output mesh file name has one of the above extensions.\n"
+                 << "\n\n******************* ERROR *************************\n\n"
+                 << endl;
+            exit(1111);
+        }
     }
     
     if(  ThNameOut.find(".med") > -1 || ThNameOut.find(".vtu") > -1 || ThNameOut.find(".vtk") > -1 )
@@ -421,6 +386,7 @@ if (ThNameOut != "PDMT_POLY_MESH_"){
                       cells = PhC
                    );
 }else{
+
 // To write a .med mesh with/without edges
 //PdmtPolyMeshWrite(  ""+ThName+"_poly_"+mpirank+".med",
 /*
