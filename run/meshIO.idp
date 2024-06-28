@@ -80,11 +80,12 @@ func mesh loadTheMesh(string meshName, string medMeshName){
     }
 
     if( meshName == "square" )
-      Th2D = square (2,2);
+      Th2D = square (getARGV( "--square_mesh_size" , 2 ),getARGV( "---square_mesh_size" , 2 ));
 
     if( meshName == "circle" ){
       border a(t=0, 2*pi){x=cos(t); y=sin(t); label=1;}
-      Th2D = buildmesh(a(100));
+      int Csize = getARGV( "--circle_mesh_size" , 100 );
+      Th2D = buildmesh(a(Csize));
     }
 
     return Th2D;

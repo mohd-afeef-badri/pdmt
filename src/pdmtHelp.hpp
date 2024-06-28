@@ -29,16 +29,20 @@ int PdmtHelp()
                             Command Line Parameters
 ===================================================================
 
-  --version       : Print version info
-  --help          : Print help info
-  --debug         : Print verbose info
-  --mesh          : Provide input mesh
-                    (accepts .mesh, .msh, .vtk, .med)
-                    Also accepts ("square" or "circle")
-  --out_mesh      : Provide name for saved mesh
-                    (accepts .med, .vtu, .vtk, .typ2)
-  --med_mesh_name : Provide name of mesh in MED file
-
+  --version          : Print version info
+  --help             : Print help info
+  --debug            : Print verbose info
+  --mesh             : Provide input mesh
+                         accepts: .mesh, .msh, .vtk, .med
+                         Also accepts : "square" or "circle"
+  --out_mesh         : Provide name for saved mesh
+                         accepts: .med, .vtu, .vtk, .typ2
+  --square_mesh_size : Provide mesh size for square mesh
+                       works only with '--mesh square'
+  --circle_mesh_size : Provide mesh size for circle mesh
+                       works only with '--mesh circle'
+  --med_mesh_name    : Provide name of mesh in MED file
+                       works with .med output '--mesh file.med'
 ===================================================================
                             Usage Examples
 ===================================================================
@@ -46,8 +50,14 @@ int PdmtHelp()
   # Mesh unit square and print debug info
   PDMT --debug --mesh square
 
+  # Mesh unit square with size
+  PDMT --mesh square --square_mesh_size 15
+
   # Mesh unit circle and print debug info
   PDMT --debug --mesh circle
+
+  # Mesh unit circle with size
+  PDMT --mesh circle --circle_mesh_size 120
 
   # Mesh unit square and save it as out.typ2
   PDMT --mesh square --out_mesh out.typ2
