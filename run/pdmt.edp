@@ -24,13 +24,16 @@
      USAGE:
      how to run
 
-       FreeFem++ Main.edp --debug --mesh ./name/of/mesh/mesh.msh
-       FreeFem++ Main.edp --mesh ./name/of/mesh/mesh.mesh
+       PDMT --debug --mesh ./name/of/mesh/mesh.msh
+       PDMT --mesh ./name/of/mesh/mesh.mesh
 
      command line parameters
 
+       --version  : to print version info
+       --help     : to print some help info
        --debug    : to print some verbos info
        --mesh     : to provide external mesh (accepts .mesh, .msh, .vtk)
+       --out_mesh : to provide saved mesh name (accepts , .med, .vtu, .vtk, typ2)
                     also accepts ("square" or "circle")
        --med_mesh_name     : to provide name of mesh in med file
 
@@ -76,10 +79,21 @@ include "meshIO.idp";                    // mesh loading and saving
 
 func int run (){
 
+  if (usedARGV("--version") != -1) {
+    PdmtVersion();
+    return 0;
+  }
+
+  if (usedARGV("--help") != -1) {
+    PdmtHelp();
+    return 0;
+  }
+ 
 //-----------------------------------------------------------------------
 // load mesh
 //-----------------------------------------------------------------------
  string ThName      = getARGV( "--mesh" , "circle" );           // Name of the mesh
+ string ThNameOut      = getARGV( "--out_mesh" , "PDMT_POLY_MESH_" );           // Name of the saved mesh
  string MedMeshName = getARGV( "--med_mesh_name" , "Mesh_1" );  // Name of the mesh
  mesh   Th          = loadTheMesh( ThName , MedMeshName );      // function in meshIO.edp
 
@@ -335,9 +349,47 @@ macro vectorPushBack(V, p1, p2, p3)
 */
 
 
+if (ThNameOut != "PDMT_POLY_MESH_"){
+
+    if (ThNameOut != "PDMT_POLY_MESH_") {
+        if (ThNameOut.find(".med") == -1 &&
+            ThNameOut.find(".vtu") == -1 &&
+            ThNameOut.find(".vtk") == -1 &&
+            ThNameOut.find(".typ2") == -1) {
+
+            cout << "\n\n******************* ERROR *************************\n\n"
+                 << "  Error in output mesh format\n"
+                 << "  PDMT can only output meshes in the following formats:\n\n"
+                 << "           .med  - SALOME's mesh format\n"
+                 << "           .vtu  - VTK XML format for unstructured grids\n"
+                 << "           .vtk  - VTK legacy format for structured and unstructured grids\n"
+                 << "           .typ2 - FCVA benchmark mesh format (description needed)\n"
+                 << "\n  Please ensure that the output mesh file name has one of the above extensions.\n"
+                 << "\n\n******************* ERROR *************************\n\n"
+                 << endl;
+            exit(1111);
+        }
+    }
+    
+    if(  ThNameOut.find(".med") > -1 || ThNameOut.find(".vtu") > -1 || ThNameOut.find(".vtk") > -1 )
+      PdmtPolyMeshWrite(  ThNameOut,
+                      nodes = PhV,
+                      cells = PhC,
+                      edges = PhE,          // this is optional
+                      labels = PhELabels    // this is optional
+                   );
+
+
+    if(  ThNameOut.find(".typ2") > -1 )
+      PdmtPolyMeshWrite(  ThNameOut,
+                      nodes = PhV,
+                      cells = PhC
+                   );
+}else{
 
 // To write a .med mesh with/without edges
 //PdmtPolyMeshWrite(  ""+ThName+"_poly_"+mpirank+".med",
+/*
   PdmtPolyMeshWrite(  ""+ThName+"_poly.med",
                       nodes = PhV,
                       cells = PhC,
@@ -353,14 +405,20 @@ macro vectorPushBack(V, p1, p2, p3)
                       edges = PhE,          // this is optional
                       labels = PhELabels    // this is optional
                    );
-
+*/
   PdmtPolyMeshWrite(  ""+ThName+"_poly.vtu",
                       nodes = PhV,
                       cells = PhC,
                       edges = PhE,          // this is optional
                       labels = PhELabels    // this is optional
                    );
-
+/*
+  PdmtPolyMeshWrite(  ""+ThName+"_poly.typ2",
+                      nodes = PhV,
+                      cells = PhC
+                 );
+*/
+}
   return 0;
 }
 

@@ -98,6 +98,9 @@ Changelog.html
 ## BINARY FILE ##
 run/PDMT
 
+#MESH FILES 
+*.typ2 
+
 ## ext files ##
 ext/*.tar.gz
 ext/MEDCOUPLING*

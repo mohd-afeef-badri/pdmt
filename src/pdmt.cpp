@@ -29,14 +29,17 @@
 #include "convexHull.hpp"
 #include "polyMeshWrite.hpp"
 #include "pdmtFunctions.hpp"
-
+#include "pdmtVersion.hpp"
+#include "pdmtHelp.hpp"
 
 using namespace std;
 using namespace Fem2D;
 
 static void InitFF()
 {
-  
+
+  Global.Add("PdmtVersion"   ,"(",new OneOperator0<int>(PdmtVersion));
+  Global.Add("PdmtHelp"   ,"(",new OneOperator0<int>(PdmtHelp));
   Global.Add("pdmtConvexHull" ,"(",new OneOperator3_<int,KN<double>*,KN<double>*,KN<long>*>(PdmtConvexHull));
   Global.Add("PdmtMaxinTwoP1" ,"(",new OneOperator2_<double,KN<double>*, KN<double>*>(PdmtMaxinTwoP1));
   Global.Add("PdmtUnitTest"   ,"(",new OneOperator0<int>(PdmtTest));

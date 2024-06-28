@@ -73,22 +73,29 @@ check-local:
 	./PDMT --debug --mesh square
 	@echo ""
 	@echo "*------------------------------------------------------------*"
-	@echo " test 1: square no debug"
+	@echo " test 2: square no debug"
 	@echo "*------------------------------------------------------------*"
 	@echo ""
 	./PDMT --mesh square
 	@echo ""
 	@echo "*------------------------------------------------------------*"
-	@echo " test 1: circle with debug"
+	@echo " test 3: circle with debug"
 	@echo "*------------------------------------------------------------*"
 	@echo ""
 	./PDMT --debug --mesh circle
 	@echo ""
 	@echo "*------------------------------------------------------------*"
-	@echo " test 1: circle no debug"
+	@echo " test 4: circle no debug"
 	@echo "*------------------------------------------------------------*"
 	@echo ""
 	./PDMT  --mesh circle
+	@echo ""
+	@echo "*------------------------------------------------------------*"
+	@echo " test 5: circle no debug pdmt_mesh.typ2"
+	@echo "*------------------------------------------------------------*"
+	@echo ""
+	./PDMT  --mesh circle --out_mesh pdmt_mesh.typ2
+
 
 clean-local:
 	@echo ""
@@ -96,7 +103,7 @@ clean-local:
 	@echo " Cleaning files in :"; pwd
 	@echo "*============================================================*"
 	@echo ""
-	rm  -f *~ *.tmp *.vtk *.mesh *.vtu *.med *.txt ./PDMT
+	rm  -f *~ *.tmp *.vtk *.mesh *.vtu *.med *.txt *.typ2 ./PDMT
 
 maintainer-clean-local: clean-local
 	@echo ""

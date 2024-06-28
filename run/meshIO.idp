@@ -46,9 +46,9 @@ func mesh loadTheMesh(string meshName, string medMeshName){
 
     mesh Th2D;
 
-    if(   ( meshName.find(".mesh") == -1 && 
-            meshName.find(".msh")  == -1 && 
-            meshName.find(".vtk")  == -1 && 
+    if(   ( meshName.find(".mesh") == -1 &&
+            meshName.find(".msh")  == -1 &&
+            meshName.find(".vtk")  == -1 &&
             meshName.find(".med")  == -1   )
         && (meshName == "square" && meshName == "circle")
       ) {
@@ -81,7 +81,7 @@ func mesh loadTheMesh(string meshName, string medMeshName){
 
     if( meshName == "square" )
       Th2D = square (2,2);
-      
+
     if( meshName == "circle" ){
       border a(t=0, 2*pi){x=cos(t); y=sin(t); label=1;}
       Th2D = buildmesh(a(100));

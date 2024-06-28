@@ -3,7 +3,10 @@ LIST_COMPILE= pdmt.cpp
 HPP_DEP = pdmtFunctions.hpp \
 convexHull.hpp \
 polyMeshWrite.hpp \
+pdmtHelp.hpp \
+pdmtVersion.hpp \
 vtkWriter.hpp  \
+typWriter.hpp  \
 medWriter.hpp
 
 
