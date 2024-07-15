@@ -2,16 +2,16 @@ FF_IS = `which $(FFMPI)`
 
 
 EXPORT_PDMT  =\nexport FF_LOADPATH="${prefix}/lib";\nexport FF_INCLUDEPATH="${prefix}/lib"
-EXPORT_PDMT +=\nexport PATH="$$PATH:${prefix}/bin";\nexport LD_LIBRARY_PATH="$$LD_LIBRARY_PATH:${prefix}/lib"
+EXPORT_PDMT +=\nexport PATH="${prefix}/bin:$$PATH";\nexport LD_LIBRARY_PATH="${prefix}/lib:$$LD_LIBRARY_PATH"
 
 
 if HAVEDEPENDENCIES
 EXPORT_MED  =\nexport out_dir_Path=${prefix}/bin
 EXPORT_MED +=\nexport PATH="$${out_dir_Path}/$(PDMT_HDF5_DIR)/bin:$${PATH}"
-EXPORT_MED +=\nexport LD_LIBRARY_PATH="$${out_dir_Path}/$(PDMT_HDF5_DIR)/lib:$${LD_LIBRARY_PATH}"
+EXPORT_MED +=\nexport LD_LIBRARY_PATH="$(PDMT_HDF5_DIR)/lib:$${LD_LIBRARY_PATH}"
 EXPORT_MED +=\nexport PATH="$${out_dir_Path}/$(PDMT_MEDFILE_DIR)/bin:$${PATH}"
-EXPORT_MED +=\nexport LD_LIBRARY_PATH="$${out_dir_Path}/$(PDMT_MEDFILE_DIR)/lib:$${LD_LIBRARY_PATH}"
-EXPORT_MED +=\nexport MEDCOUPLING_ROOT_DIR="$${out_dir_Path}/$(PDMT_MEDCOUPLING_DIR)"
+EXPORT_MED +=\nexport LD_LIBRARY_PATH="$(PDMT_MEDFILE_DIR)/lib:$${LD_LIBRARY_PATH}"
+EXPORT_MED +=\nexport MEDCOUPLING_ROOT_DIR="$(PDMT_MEDCOUPLING_DIR)"
 EXPORT_MED +=\nexport PATH="$${MEDCOUPLING_ROOT_DIR}/bin:$${PATH}"
 EXPORT_MED +=\nexport LD_LIBRARY_PATH="$${MEDCOUPLING_ROOT_DIR}/lib:$${LD_LIBRARY_PATH}"
 endif
