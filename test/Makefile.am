@@ -17,15 +17,18 @@ maintainer-clean-local: clean-local
 	@echo ""
 	rm  -rf Makefile Makefile.in
 
-check-local: check-convex-hull test-vtk test-msh test-mesh test-med
+check-local: test-vtk test-msh test-mesh test-med
 	@echo ""
 	@echo "*============================================================*"
 	@echo " performing check for pdmt"
 	@echo "*============================================================*"
 	@echo ""
 
-check-convex-hull: UnitTestCovexHull.edp
+UnitTestCovexHull: UnitTestCovexHull.edp
 	$(FFMPI) -np 1 UnitTestCovexHull.edp -v 0 -ns -nw > UnitTestCovexHull.log
+
+test-typ:
+	./../run/PDMT --debug --mesh ./../msh/pentagon.mesh  --out_mesh out.typ2
 
 test-vtk:
 	./../run/PDMT --debug --mesh ./../msh/disk5holes.vtk
