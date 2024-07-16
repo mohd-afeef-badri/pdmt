@@ -25,6 +25,8 @@ jobs:
     - name: configure
       run: autoreconf -i && ./configure
     - name: make
-      run: make && sudo make install
-#    - name: make check
-#      run: make check
+      run: make
+    - name: make install
+      run: sudo make install
+    - name: make check
+      run: make check
