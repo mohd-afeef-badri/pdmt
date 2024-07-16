@@ -174,10 +174,10 @@ void writePolyMed(std::string const * fineName, KNM < double > * nodesPoly, KN <
                   << "-------------------------------------------- \n\n"
                   << "Information on nodes: \n"
                   << "  # nodes " << TotalNodes << "\n"
-                  << "  List of familes , tags , groups  \n\n"
+                  << "  List of families , tags , groups  \n\n"
                   << "Information on cells: \n"
                   << "  # polygons " << CellsPoly -> N() << "\n"
-                  << "  List of familes , tags , groups  \n\n";
+                  << "  List of families , tags , groups  \n\n";
         for (std::set < int > ::iterator it = poly2DUniqueLabels.begin(); it != poly2DUniqueLabels.end(); ++it) {
           infoWrite << "    'cell_family_" + to_string( * it) + "'  has tag '" <<   * it + 1000 << "' belongs to group 'cell_group_" + to_string( * it) + "' " <<  endl;
         }
@@ -185,7 +185,7 @@ void writePolyMed(std::string const * fineName, KNM < double > * nodesPoly, KN <
         infoWrite << "\n\n"
                   << "Information on boundary: \n"
                   << "  # edges " << EdgesPoly -> N() << "\n"
-                  << "  List of familes , tags , groups  \n\n";
+                  << "  List of families , tags , groups  \n\n";
         for (std::set < int > ::iterator it = poly1DUniqueLabels.begin(); it != poly1DUniqueLabels.end(); ++it) {
           infoWrite << "    'boundary_family_" + to_string( * it) + "'  has tag '" << * it << "' belongs to group 'boundary_group_" + to_string( * it) + "' " <<endl;
         }

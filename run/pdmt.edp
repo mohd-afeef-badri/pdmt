@@ -67,10 +67,10 @@ include "meshIO.idp";                    // mesh loading and saving
   V1h   =     $V1_{h}$        = piecewise linear finite element space
   ThVix = ${\V_x\}_{i=0}^N_n$ = x - coordinate at each vertex of mesh
   ThViy = ${\V_y\}_{i=0}^N_n$ = y - coordinate at each vertex of mesh
-  ThTix = ${\T_x\}_{i=0}^N_t$ = triangle centre node x - coordinate
-  ThTiy = ${\T_y\}_{i=0}^N_t$ = triangle centre node y - coordinate
-  ThEix = ${\E_x\}_{i=0}^N_be$= edge centre node x - coordinate
-  ThEiy = ${\E_y\}_{i=0}^N_be$= edge centre node y - coordinate
+  ThTix = ${\T_x\}_{i=0}^N_t$ = triangle center node x - coordinate
+  ThTiy = ${\T_y\}_{i=0}^N_t$ = triangle center node y - coordinate
+  ThEix = ${\E_x\}_{i=0}^N_be$= edge center node x - coordinate
+  ThEiy = ${\E_y\}_{i=0}^N_be$= edge center node y - coordinate
   PhV   = $\{Vx, Vy\}_{i=1}^{N_n}$ = 2D polygon mesh vertices vector
 */
 
@@ -88,14 +88,14 @@ func int run (){
     PdmtHelp();
     return 0;
   }
- 
+
 //-----------------------------------------------------------------------
 // load mesh
 //-----------------------------------------------------------------------
- string ThName      = getARGV( "--mesh" , "circle" );           // Name of the mesh
- string ThNameOut      = getARGV( "--out_mesh" , "PDMT_POLY_MESH_" );           // Name of the saved mesh
- string MedMeshName = getARGV( "--med_mesh_name" , "Mesh_1" );  // Name of the mesh
- mesh   Th          = loadTheMesh( ThName , MedMeshName );      // function in meshIO.edp
+ string ThName      = getARGV( "--mesh" , "circle" );              // Name of the mesh
+ string ThNameOut   = getARGV( "--out_mesh" , "PDMT_POLY_MESH_" ); // Name of the saved mesh
+ string MedMeshName = getARGV( "--med_mesh_name" , "Mesh_1" );     // Name of the mesh
+ mesh   Th          = loadTheMesh( ThName , MedMeshName );         // function in meshIO.edp
 
 
 
@@ -144,13 +144,13 @@ func int run (){
 //-----------------------------------------------------------------------
 // compute nodes/labels for polygons
 //-----------------------------------------------------------------------
-  V0h   ThTix = x, ThTiy = y;            // nodes at triangle centres
+  V0h   ThTix = x, ThTiy = y;            // nodes at triangle centers
   V1h   ThVix = x, ThViy = y;            // nodes at vertices
 
-  real[int] ThEix(ThNbe), ThEiy(ThNbe);  // nodes at boundary edge centres
+  real[int] ThEix(ThNbe), ThEiy(ThNbe);  // nodes at boundary edge centers
   int[int]  ThEiLab(ThNbe);              // labels of edges
 
-  // build barry centre nodes //
+  // build barycenter nodes //
   for(int e=0; e<ThNbe;++e){
     ThEix(e) = 0.5*(Th(Th.be(e)[0]).x + Th(Th.be(e)[1]).x); // x coordinate
     ThEiy(e) = 0.5*(Th(Th.be(e)[0]).y + Th(Th.be(e)[1]).y); // y coordinate
@@ -370,7 +370,7 @@ if (ThNameOut != "PDMT_POLY_MESH_"){
             exit(1111);
         }
     }
-    
+
     if(  ThNameOut.find(".med") > -1 || ThNameOut.find(".vtu") > -1 || ThNameOut.find(".vtk") > -1 )
       PdmtPolyMeshWrite(  ThNameOut,
                       nodes = PhV,
