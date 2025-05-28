@@ -1,4 +1,4 @@
-name: UB22.04_NO_MED_OPENMPI
+name: UB24.04_NO_MED
 
 on:
   push:
@@ -19,7 +19,7 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install libopenmpi-dev
+        sudo apt-get install mpich
         wget https://github.com/FreeFem/FreeFem-sources/releases/download/v4.14-testActions/FreeFEM-4.14-amd64-22.04.deb
         sudo apt install ./FreeFEM-4.14-amd64-22.04.deb
     - name: configure

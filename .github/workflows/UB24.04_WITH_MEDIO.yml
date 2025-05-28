@@ -1,4 +1,4 @@
-name: UB22.04_NO_MED
+name: UB24.04_WITH_MED
 
 on:
   push:
@@ -19,11 +19,11 @@ jobs:
     - name: Install dependencies
       run: |
         sudo apt-get update
-        sudo apt-get install mpich
+        sudo apt-get install mpich libtirpc-dev
         wget https://github.com/FreeFem/FreeFem-sources/releases/download/v4.14-testActions/FreeFEM-4.14-amd64-22.04.deb
         sudo apt install ./FreeFEM-4.14-amd64-22.04.deb
     - name: configure
-      run: autoreconf -i && ./configure
+      run: autoreconf -i && ./configure --with-dependencies
     - name: make
       run: make
     - name: make install
