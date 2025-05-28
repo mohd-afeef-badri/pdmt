@@ -1,18 +1,20 @@
 #--------------------------------------------------------------------------------
 # Version info
 #--------------------------------------------------------------------------------
-MEDCOUPLING_VERSION=9.12.0
-MEDCOUPLING_MD5SUM=b67866e8d294581a7102b54d650b59ab
+MEDCOUPLING_VERSION=9.14.0
 MEDIO_VERSION=1.0
 
 #--------------------------------------------------------------------------------
-# Download link #TODO
+# Download link
 #--------------------------------------------------------------------------------
-MEDCOUPLING_DOWNLOAD      =  wget -c https://files.salome-platform.org/Salome/Salome$(MEDCOUPLING_VERSION)/MEDCOUPLING-$(MEDCOUPLING_VERSION)-$(MEDCOUPLING_MD5SUM).tar.gz \
-                       -O MEDCOUPLING-$(MEDCOUPLING_VERSION).tar.gz
+MEDCOUPLING_DOWNLOAD =	wget -c \
+  			--header="User-Agent: Mozilla/5.0 (X11; Linux x86_64)" \
+  			--header="Referer: https://www.salome-platform.org/" \
+  			https://files.salome-platform.org/Salome/Salome$(MEDCOUPLING_VERSION)/MEDCOUPLING-$(MEDCOUPLING_VERSION).tar.gz \
+  			-O MEDCOUPLING-$(MEDCOUPLING_VERSION).tar.gz
 
-MEDIO_DOWNLOAD            =  wget -c https://github.com/mohd-afeef-badri/medio/archive/refs/tags/$(MEDIO_VERSION).tar.gz \
-                       -O medio-$(MEDIO_VERSION).tar.gz
+MEDIO_DOWNLOAD	=	wget -c https://github.com/mohd-afeef-badri/medio/archive/refs/tags/$(MEDIO_VERSION).tar.gz \
+			-O medio-$(MEDIO_VERSION).tar.gz
 
 #--------------------------------------------------------------------------------
 # CMAKE FLAGS FOR MEDCOUPLING
