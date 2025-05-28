@@ -23,14 +23,14 @@ Now, let's configure the build by specifying the necessary options using the `co
 ```bash
 ./configure \
 --prefix=/home/Work/tmp/pdmt \
---with-medcoupling=/home/Install/TarPackages/SALOME-9.10.0-native-UB22.04/BINARIES-UB22.04/MEDCOUPLING \
---with-medfile=/home/Install/TarPackages/SALOME-9.10.0-native-UB22.04/BINARIES-UB22.04/medfile         \
---with-hdf5=/home/Install/TarPackages/SALOME-9.10.0-native-UB22.04/BINARIES-UB22.04/hdf5
+--with-medcoupling=/home/Install/TarPackages/SALOME-9.14.0-native-UB24.04/BINARIES-UB24.04/MEDCOUPLING \
+--with-medfile=/home/Install/TarPackages/SALOME-9.14.0-native-UB24.04/BINARIES-UB24.04/medfile         \
+--with-hdf5=/home/Install/TarPackages/SALOME-9.14.0-native-UB24.04/BINARIES-UB24.04/hdf5
 ```
 
 In this configuration:
 -  PDMT will be installed in the  `/home/Work/tmp/pdmt` directory. You can choose a directory that you wish to install PDMT.  
-- The root directories for `medcoupling` , `medfile`, and `hdf5` which come as precompiled with SALOME are provided `/home/Install/TarPackages/SALOME-9.10.0-native-UB22.04/BINARIES-UB22.04/`.  To get your precompiled SALOME click [here](https://www.salome-platform.org/?page_id=2433).
+- The root directories for `medcoupling` , `medfile`, and `hdf5` which come as precompiled with SALOME are provided `/home/Install/TarPackages/SALOME-9.14.0-native-UB24.04/BINARIES-UB24.04/`.  To get your precompiled SALOME click [here](https://www.salome-platform.org/?page_id=2433).
 - To proceed with the build, ensure that FreeFEM is already installed and available in your  `$PATH`. If not use flag `--with-FreeFEM` to configure with FreeFEM installed elsewhere.
 
 Please note you will need to adapt each flag to your specific system. 
@@ -71,7 +71,7 @@ Next, use the `configure` script to configure the build with the required option
 In this configuration:
 
 -  PDMT will be installed in the  `/home/Work/tmp/pdmt` directory. You can choose a directory that you wish to install PDMT.  
-- After successfull install, the root directories for medcoupling, medfile, and hdf5 will be automatically located in `ext/MEDCOUPLING-9.11.0-MPI/INSTALL`.
+- After successfull install, the root directories for medcoupling, medfile, and hdf5 will be automatically located in `ext/MEDCOUPLING-9.14.0/INSTALL`.
 -  Ensure that FreeFEM is already installed and available in your `$PATH`. If not use flag `--with-FreeFEM` to configure with FreeFEM installed elsewhere. 
 
 ##### Compile PDMT: #####
@@ -99,7 +99,7 @@ make check
 to use and run PDMT with med support please make sure that your `$LD_LIBRARY_PATH` variable contains  `medcoupling`, `medfile`, and `hdf5`  paths. For example for the install above 
 
 ```bash
-export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/Install/TarPackages/SALOME-9.10.0-native-UB22.04/BINARIES-UB22.04/MEDCOUPLING/lib:/home/Install/TarPackages/SALOME-9.10.0-native-UB22.04/BINARIES-UB22.04/medfile/lib:/home/Install/TarPackages/SALOME-9.10.0-native-UB22.04/BINARIES-UB22.04/hdf5/lib
+export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/Install/TarPackages/SALOME-9.14.0-native-UB24.04/BINARIES-UB24.04/MEDCOUPLING/lib:/home/Install/TarPackages/SALOME-9.14.0-native-UB24.04/BINARIES-UB24.04/medfile/lib:/home/Install/TarPackages/SALOME-9.14.0-native-UB24.04/BINARIES-UB24.04/hdf5/lib
 ```
 By following these steps, you will have successfully compiled and installed PDMT with MedCoupling support for FreeFEM. Enjoy the poly meshes for your computational simulations!
 
