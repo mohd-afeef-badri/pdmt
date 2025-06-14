@@ -29,4 +29,19 @@ jobs:
     - name: make install
       run: sudo make install
     - name: make check
-      run: make check
+      run: |
+        set +e                      # Don't exit immediately on failure
+        make check
+        status=$?                  # Capture exit code of make check
+        mkdir -p $GITHUB_WORKSPACE/artifacts
+        find . \( -name "*.log" -o -name "*.txt" \) -exec cp --parents {} "$GITHUB_WORKSPACE/artifacts/" \; || true
+        exit $status               # Re-raise make check's status to mark the step as failed if it should
+    - name: Upload logs
+      if: always()  # upload logs even if test failed
+      uses: actions/upload-artifact@v4
+      with:
+        name: check-logs
+        path: ${{ github.workspace }}/artifacts
+
+
+
