@@ -17,28 +17,28 @@ define(SECTION_TITLE,
 
 AU_ALIAS([ACX_FF], [AX_FF])
 AC_DEFUN([AX_FF], [
-AC_PREREQ([2.50])
+AC_PREREQ([2.71])
 AC_ARG_VAR(FF,[FreeFEM compiler command])
 AC_CHECK_PROG(FF,[FreeFem++],[FreeFem++],[no])
 ])
 
 AU_ALIAS([ACX_FFCXX], [AX_FFCXX])
 AC_DEFUN([AX_FFCXX], [
-AC_PREREQ([2.50])
+AC_PREREQ([2.71])
 AC_ARG_VAR(FFCXX,[FreeFEM compiler command])
 AC_CHECK_PROG(FFCXX,[ff-c++],[ff-c++],[no])
 ])
 
 AU_ALIAS([ACX_FFCXXDEP], [AX_FFCXXDEP])
 AC_DEFUN([AX_FFCXXDEP], [
-AC_PREREQ([2.50])
+AC_PREREQ([2.71])
 AC_ARG_VAR(FFCXXDEP,[ff-c++ compiler dependencies])
 AC_CHECK_PROG(FFCXXDEP,[ff-get-dep],[ff-get-dep],[no])
 ])
 
 AU_ALIAS([ACX_FFMPI], [AX_FFMPI])
 AC_DEFUN([AX_FFMPI], [
-AC_PREREQ([2.50])
+AC_PREREQ([2.71])
 AC_ARG_VAR(FFMPI,[FreeFEM compiler command])
 AC_CHECK_PROG(FFMPI,[ff-mpirun],[ff-mpirun],[no])
 ])
@@ -94,7 +94,7 @@ test "$dependencies" == "no" && AC_MSG_WARN([
 
 AU_ALIAS([ACX_MPI], [AX_MPI])
 AC_DEFUN([AX_MPI], [
-AC_PREREQ([2.50])
+AC_PREREQ([2.71])
 
 AC_LANG_CASE(
 [C], [
@@ -167,22 +167,22 @@ dnl We have to use AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[]])],[],[]) and no
 dnl latter uses $CPP, not $CC (which may be mpicc).
 AC_LANG_CASE([C], [if test x != x"$MPILIBS"; then
 	AC_MSG_CHECKING([for mpi.h])
-	AC_TRY_COMPILE([#include <mpi.h>],[],[AC_MSG_RESULT(yes)], [MPILIBS=""
+	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <mpi.h>]], [[]])],[AC_MSG_RESULT(yes)],[MPILIBS=""
 		AC_MSG_RESULT(no)])
 fi],
 [C++], [if test x != x"$MPILIBS"; then
 	AC_MSG_CHECKING([for mpi.h])
-	AC_TRY_COMPILE([#include <mpi.h>],[],[AC_MSG_RESULT(yes)], [MPILIBS=""
+	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <mpi.h>]], [[]])],[AC_MSG_RESULT(yes)],[MPILIBS=""
 		AC_MSG_RESULT(no)])
 fi],
 [Fortran 77], [if test x != x"$MPILIBS"; then
 	AC_MSG_CHECKING([for mpif.h])
-	AC_TRY_COMPILE([#include <mpif.h>],[],[AC_MSG_RESULT(yes)], [MPILIBS=""
+	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <mpif.h>]], [[]])],[AC_MSG_RESULT(yes)],[MPILIBS=""
 		AC_MSG_RESULT(no)])
 fi],
 [Fortran], [if test x != x"$MPILIBS"; then
 	AC_MSG_CHECKING([for mpif.h])
-	AC_TRY_COMPILE([#include <mpif.h>],[],[AC_MSG_RESULT(yes)], [MPILIBS=""
+	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <mpif.h>]], [[]])],[AC_MSG_RESULT(yes)],[MPILIBS=""
 		AC_MSG_RESULT(no)])
 fi])
 
