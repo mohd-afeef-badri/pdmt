@@ -19,7 +19,7 @@ compile  \
 all-local:
 	@echo ""
 	@echo "*============================================================*"
-	@echo " pdmt version 0.1 compilation successfully done"
+	@echo " pdmt version 0.2 compilation successfully done"
 	@echo ""
 if HAVEMED
 	@echo " In order to use medio please ensure to edit LD_LIBRARY_PATH"
