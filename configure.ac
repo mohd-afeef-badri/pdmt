@@ -1,4 +1,4 @@
-AC_INIT([pdmt],[0.1],[mohd-afeef.badri@cea.fr])
+AC_INIT([pdmt],[0.2],[mohd-afeef.badri@cea.fr])
 AM_INIT_AUTOMAKE([-Wall -Werror foreign])
 
 AC_CONFIG_HEADERS([config.h])
