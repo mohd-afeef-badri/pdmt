@@ -322,15 +322,15 @@ test $hdf5 != no -a $medfile != no -a $medcoupling != no && AC_SUBST(CXXFLAGS_ME
 test $hdf5 != no -a $medfile != no -a $medcoupling != no && AC_SUBST(LDFLAGS_MED,"-L${hdf5}/lib -L${medfile}/lib -L${medcoupling}/lib ${LDFLAGS}"  )
 test $hdf5 != no -a $medfile != no -a $medcoupling != no && AC_SUBST(LIBS_MED,"-lhdf5 -lmedC -lmedloader -lmedcoupling -linterpkernel -lmedcouplingremapper   ${LIBS}"  )
 
-test $dependencies != no && AC_SUBST(CXXFLAGS_MED,"-I$(pwd)/ext/MEDCOUPLING-9.14.0/BINARIES-CO7/hdf5/include -I$(pwd)/ext/MEDCOUPLING-9.14.0/BINARIES-CO7/medfile/include -I$(pwd)/ext/MEDCOUPLING-9.14.0/INSTALL/MEDCOUPLING/include ${CXXFLAGS}"  )
-test $dependencies != no && AC_SUBST(LDFLAGS_MED,"-L$(pwd)/ext/MEDCOUPLING-9.14.0/BINARIES-CO7/hdf5/lib -L$(pwd)/ext/MEDCOUPLING-9.14.0/BINARIES-CO7/medfile/lib -L$(pwd)/ext/MEDCOUPLING-9.14.0/INSTALL/MEDCOUPLING/lib ${LDFLAGS}"  )
+test $dependencies != no && AC_SUBST(CXXFLAGS_MED,"-I$(pwd)/ext/MEDCOUPLING-9.15.0/BINARIES-CO7/hdf5/include -I$(pwd)/ext/MEDCOUPLING-9.15.0/BINARIES-CO7/medfile/include -I$(pwd)/ext/MEDCOUPLING-9.15.0/INSTALL/MEDCOUPLING/include ${CXXFLAGS}"  )
+test $dependencies != no && AC_SUBST(LDFLAGS_MED,"-L$(pwd)/ext/MEDCOUPLING-9.15.0/BINARIES-CO7/hdf5/lib -L$(pwd)/ext/MEDCOUPLING-9.15.0/BINARIES-CO7/medfile/lib -L$(pwd)/ext/MEDCOUPLING-9.15.0/INSTALL/MEDCOUPLING/lib ${LDFLAGS}"  )
 test $dependencies != no && AC_SUBST(LIBS_MED,"-lhdf5 -lmedC -lmedloader -lmedcoupling -linterpkernel -lmedcouplingremapper   ${LIBS}"  )
 
-test $dependencies != no && AC_SUBST(PDMT_MEDCOUPLING_DIR,"$(pwd)/ext/MEDCOUPLING-9.14.0/INSTALL/MEDCOUPLING"  )
-test $dependencies != no && AC_SUBST(PDMT_HDF5_DIR,"$(pwd)/ext/MEDCOUPLING-9.14.0/BINARIES-CO7/hdf5"  )
-test $dependencies != no && AC_SUBST(PDMT_MEDFILE_DIR,"$(pwd)/ext/MEDCOUPLING-9.14.0/BINARIES-CO7/medfile"  )
+test $dependencies != no && AC_SUBST(PDMT_MEDCOUPLING_DIR,"$(pwd)/ext/MEDCOUPLING-9.15.0/INSTALL/MEDCOUPLING"  )
+test $dependencies != no && AC_SUBST(PDMT_HDF5_DIR,"$(pwd)/ext/MEDCOUPLING-9.15.0/BINARIES-CO7/hdf5"  )
+test $dependencies != no && AC_SUBST(PDMT_MEDFILE_DIR,"$(pwd)/ext/MEDCOUPLING-9.15.0/BINARIES-CO7/medfile"  )
 
-test $dependencies != no && AC_SUBST(PDMT_MEDIO_DIR,"$(pwd)/ext/medio-1.0/src/medio"  )
+test $dependencies != no && AC_SUBST(PDMT_MEDIO_DIR,"$(pwd)/ext/medio-1.1/src/medio"  )
 test $medio != no && AC_SUBST(PDMT_MEDIO_DIR,"${medfile}/medio"  )
 
 AM_CONDITIONAL([HAVEDEPENDENCIES], [test $dependencies != no])
