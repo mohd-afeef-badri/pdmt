@@ -1,4 +1,4 @@
-AC_INIT([pdmt],[0.1],[mohd-afeef.badri@cea.fr])
+AC_INIT([pdmt],[0.2],[mohd-afeef.badri@cea.fr])
 AM_INIT_AUTOMAKE([-Wall -Werror foreign])
 
 AC_CONFIG_HEADERS([config.h])
@@ -17,28 +17,28 @@ define(SECTION_TITLE,
 
 AU_ALIAS([ACX_FF], [AX_FF])
 AC_DEFUN([AX_FF], [
-AC_PREREQ([2.50])
+AC_PREREQ([2.71])
 AC_ARG_VAR(FF,[FreeFEM compiler command])
 AC_CHECK_PROG(FF,[FreeFem++],[FreeFem++],[no])
 ])
 
 AU_ALIAS([ACX_FFCXX], [AX_FFCXX])
 AC_DEFUN([AX_FFCXX], [
-AC_PREREQ([2.50])
+AC_PREREQ([2.71])
 AC_ARG_VAR(FFCXX,[FreeFEM compiler command])
 AC_CHECK_PROG(FFCXX,[ff-c++],[ff-c++],[no])
 ])
 
 AU_ALIAS([ACX_FFCXXDEP], [AX_FFCXXDEP])
 AC_DEFUN([AX_FFCXXDEP], [
-AC_PREREQ([2.50])
+AC_PREREQ([2.71])
 AC_ARG_VAR(FFCXXDEP,[ff-c++ compiler dependencies])
 AC_CHECK_PROG(FFCXXDEP,[ff-get-dep],[ff-get-dep],[no])
 ])
 
 AU_ALIAS([ACX_FFMPI], [AX_FFMPI])
 AC_DEFUN([AX_FFMPI], [
-AC_PREREQ([2.50])
+AC_PREREQ([2.71])
 AC_ARG_VAR(FFMPI,[FreeFEM compiler command])
 AC_CHECK_PROG(FFMPI,[ff-mpirun],[ff-mpirun],[no])
 ])
@@ -94,7 +94,7 @@ test "$dependencies" == "no" && AC_MSG_WARN([
 
 AU_ALIAS([ACX_MPI], [AX_MPI])
 AC_DEFUN([AX_MPI], [
-AC_PREREQ([2.50])
+AC_PREREQ([2.71])
 
 AC_LANG_CASE(
 [C], [
@@ -167,22 +167,22 @@ dnl We have to use AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[]], [[]])],[],[]) and no
 dnl latter uses $CPP, not $CC (which may be mpicc).
 AC_LANG_CASE([C], [if test x != x"$MPILIBS"; then
 	AC_MSG_CHECKING([for mpi.h])
-	AC_TRY_COMPILE([#include <mpi.h>],[],[AC_MSG_RESULT(yes)], [MPILIBS=""
+	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <mpi.h>]], [[]])],[AC_MSG_RESULT(yes)],[MPILIBS=""
 		AC_MSG_RESULT(no)])
 fi],
 [C++], [if test x != x"$MPILIBS"; then
 	AC_MSG_CHECKING([for mpi.h])
-	AC_TRY_COMPILE([#include <mpi.h>],[],[AC_MSG_RESULT(yes)], [MPILIBS=""
+	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <mpi.h>]], [[]])],[AC_MSG_RESULT(yes)],[MPILIBS=""
 		AC_MSG_RESULT(no)])
 fi],
 [Fortran 77], [if test x != x"$MPILIBS"; then
 	AC_MSG_CHECKING([for mpif.h])
-	AC_TRY_COMPILE([#include <mpif.h>],[],[AC_MSG_RESULT(yes)], [MPILIBS=""
+	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <mpif.h>]], [[]])],[AC_MSG_RESULT(yes)],[MPILIBS=""
 		AC_MSG_RESULT(no)])
 fi],
 [Fortran], [if test x != x"$MPILIBS"; then
 	AC_MSG_CHECKING([for mpif.h])
-	AC_TRY_COMPILE([#include <mpif.h>],[],[AC_MSG_RESULT(yes)], [MPILIBS=""
+	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([[#include <mpif.h>]], [[]])],[AC_MSG_RESULT(yes)],[MPILIBS=""
 		AC_MSG_RESULT(no)])
 fi])
 
@@ -322,15 +322,15 @@ test $hdf5 != no -a $medfile != no -a $medcoupling != no && AC_SUBST(CXXFLAGS_ME
 test $hdf5 != no -a $medfile != no -a $medcoupling != no && AC_SUBST(LDFLAGS_MED,"-L${hdf5}/lib -L${medfile}/lib -L${medcoupling}/lib ${LDFLAGS}"  )
 test $hdf5 != no -a $medfile != no -a $medcoupling != no && AC_SUBST(LIBS_MED,"-lhdf5 -lmedC -lmedloader -lmedcoupling -linterpkernel -lmedcouplingremapper   ${LIBS}"  )
 
-test $dependencies != no && AC_SUBST(CXXFLAGS_MED,"-I$(pwd)/ext/MEDCOUPLING-9.14.0/BINARIES-CO7/hdf5/include -I$(pwd)/ext/MEDCOUPLING-9.14.0/BINARIES-CO7/medfile/include -I$(pwd)/ext/MEDCOUPLING-9.14.0/INSTALL/MEDCOUPLING/include ${CXXFLAGS}"  )
-test $dependencies != no && AC_SUBST(LDFLAGS_MED,"-L$(pwd)/ext/MEDCOUPLING-9.14.0/BINARIES-CO7/hdf5/lib -L$(pwd)/ext/MEDCOUPLING-9.14.0/BINARIES-CO7/medfile/lib -L$(pwd)/ext/MEDCOUPLING-9.14.0/INSTALL/MEDCOUPLING/lib ${LDFLAGS}"  )
+test $dependencies != no && AC_SUBST(CXXFLAGS_MED,"-I$(pwd)/ext/MEDCOUPLING-9.15.0/BINARIES-CO7/hdf5/include -I$(pwd)/ext/MEDCOUPLING-9.15.0/BINARIES-CO7/medfile/include -I$(pwd)/ext/MEDCOUPLING-9.15.0/INSTALL/MEDCOUPLING/include ${CXXFLAGS}"  )
+test $dependencies != no && AC_SUBST(LDFLAGS_MED,"-L$(pwd)/ext/MEDCOUPLING-9.15.0/BINARIES-CO7/hdf5/lib -L$(pwd)/ext/MEDCOUPLING-9.15.0/BINARIES-CO7/medfile/lib -L$(pwd)/ext/MEDCOUPLING-9.15.0/INSTALL/MEDCOUPLING/lib ${LDFLAGS}"  )
 test $dependencies != no && AC_SUBST(LIBS_MED,"-lhdf5 -lmedC -lmedloader -lmedcoupling -linterpkernel -lmedcouplingremapper   ${LIBS}"  )
 
-test $dependencies != no && AC_SUBST(PDMT_MEDCOUPLING_DIR,"$(pwd)/ext/MEDCOUPLING-9.14.0/INSTALL/MEDCOUPLING"  )
-test $dependencies != no && AC_SUBST(PDMT_HDF5_DIR,"$(pwd)/ext/MEDCOUPLING-9.14.0/BINARIES-CO7/hdf5"  )
-test $dependencies != no && AC_SUBST(PDMT_MEDFILE_DIR,"$(pwd)/ext/MEDCOUPLING-9.14.0/BINARIES-CO7/medfile"  )
+test $dependencies != no && AC_SUBST(PDMT_MEDCOUPLING_DIR,"$(pwd)/ext/MEDCOUPLING-9.15.0/INSTALL/MEDCOUPLING"  )
+test $dependencies != no && AC_SUBST(PDMT_HDF5_DIR,"$(pwd)/ext/MEDCOUPLING-9.15.0/BINARIES-CO7/hdf5"  )
+test $dependencies != no && AC_SUBST(PDMT_MEDFILE_DIR,"$(pwd)/ext/MEDCOUPLING-9.15.0/BINARIES-CO7/medfile"  )
 
-test $dependencies != no && AC_SUBST(PDMT_MEDIO_DIR,"$(pwd)/ext/medio-1.0/src/medio"  )
+test $dependencies != no && AC_SUBST(PDMT_MEDIO_DIR,"$(pwd)/ext/medio-1.1/src/medio"  )
 test $medio != no && AC_SUBST(PDMT_MEDIO_DIR,"${medfile}/medio"  )
 
 AM_CONDITIONAL([HAVEDEPENDENCIES], [test $dependencies != no])
