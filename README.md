@@ -1,6 +1,8 @@
-![image](https://github.com/mohd-afeef-badri/pdmt/assets/52162083/bc7f98a6-7631-439d-934f-7daa49250721)
+![image](https://github.com/user-attachments/assets/74f0a22c-2310-41fd-8ca6-302c8d349eaf)
 
 PDMT, acryonm for Parallel Dual Meshing Tool, is a polyhedral meshing/remsehing tool. It harnesses the power of the finite element framework (FreeFEM) to facilitate the seamless transformation of a triangular or tetrahedral mesh into a more versatile and efficient polyhedral mesh. PDMT adeptly identifies the dual structure of the original triangular mesh, thereby establishing a solid foundation for the subsequent creation of the polyhedral mesh. The underlying Voronoi frame is utilized to form this new polyhedral mesh, ensuring optimal utilization of computational resources and enhancing the mesh's adaptability for a diverse range of engineering simulations and scientific analyses.
+
+![image](https://github.com/mohd-afeef-badri/pdmt/assets/52162083/bc7f98a6-7631-439d-934f-7daa49250721)
 
 ## Dependencies
 
