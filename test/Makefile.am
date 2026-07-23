@@ -19,6 +19,17 @@ maintainer-clean-local: clean-local
 
 EXTRA_DIST = check_2d_dual_vtu.py
 
+# These tests load build-tree plugins directly and bypass run/PDMT, which
+# normally exports the MED runtime library paths. Use configure substitutions
+# here so local builds and CI workspaces do not need a hard-coded path.
+MED_TEST_ENV =
+if HAVEDEPENDENCIES
+MED_TEST_ENV += LD_LIBRARY_PATH="$(PDMT_HDF5_DIR)/lib:$(PDMT_MEDFILE_DIR)/lib:$(PDMT_MEDCOUPLING_DIR)/lib:$${LD_LIBRARY_PATH}"
+endif
+if HAVEMED
+MED_TEST_ENV += LD_LIBRARY_PATH="$(hdf5)/lib:$(medfile)/lib:$(medcoupling)/lib:$${LD_LIBRARY_PATH}"
+endif
+
 check-local: test-vtk test-msh test-mesh test-med test-2d-modes test-3d test-conserve-edge test-3s test-med-3d
 	@echo ""
 	@echo "*============================================================*"
@@ -27,7 +38,7 @@ check-local: test-vtk test-msh test-mesh test-med test-2d-modes test-3d test-con
 	@echo ""
 
 UnitTestCovexHull: UnitTestCovexHull.edp
-	$(FFMPI) -np 1 UnitTestCovexHull.edp -v 0 -ns -nw > UnitTestCovexHull.log
+	$(MED_TEST_ENV) $(FFMPI) -np 1 UnitTestCovexHull.edp -v 0 -ns -nw > UnitTestCovexHull.log
 
 test-2d-modes: check_2d_dual_vtu.py
 	./../run/PDMT --dimension 2 --mesh square --square_mesh_size 4 --mode smooth_dual --out_mesh test_2d_smooth.vtu > test_2d_smooth.log
@@ -38,17 +49,17 @@ test-2d-modes: check_2d_dual_vtu.py
 	python3 ./check_2d_dual_vtu.py test_2d_subdivided_circle_0000.vtu
 
 test-3d: UnitTest3D.edp single_tetra.mesh3d
-	$(FFMPI) -np 1 UnitTest3D.edp -v 0 -nw > UnitTest3D.log
+	$(MED_TEST_ENV) $(FFMPI) -np 1 UnitTest3D.edp -v 0 -nw > UnitTest3D.log
 
 test-conserve-edge: UnitTestConserveEdge.edp physical_edge.msh3d
-	$(FFMPI) -np 1 UnitTestConserveEdge.edp -v 0 -nw > UnitTestConserveEdge.log
+	$(MED_TEST_ENV) $(FFMPI) -np 1 UnitTestConserveEdge.edp -v 0 -nw > UnitTestConserveEdge.log
 
 test-3s: UnitTest3S.edp folded_surface_edge.msh3d closed_surface.msh3d
-	$(FFMPI) -np 1 UnitTest3S.edp -v 0 -nw > UnitTest3S.log
+	$(MED_TEST_ENV) $(FFMPI) -np 1 UnitTest3S.edp -v 0 -nw > UnitTest3S.log
 
 test-med-3d: UnitTestMED3D.edp single_tetra.mesh3d closed_surface.msh3d
 if WITHMEDIO
-	$(FFMPI) -np 1 UnitTestMED3D.edp -v 0 -nw > UnitTestMED3D.log
+	$(MED_TEST_ENV) $(FFMPI) -np 1 UnitTestMED3D.edp -v 0 -nw > UnitTestMED3D.log
 endif
 
 test-typ:
