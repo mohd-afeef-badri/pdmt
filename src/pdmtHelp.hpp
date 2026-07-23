@@ -38,8 +38,8 @@ int PdmtHelp()
   --dimension        : Input type: 2 (default), 3, or 3S surface
   --feature_angle    : 3D/3S feature angle in degrees (default: 45)
   --conserve_edge    : Comma-separated Gmsh physical edge-group names
-  --mode             : 3D/3S construction: subdivided_dual or smooth_dual
-                         defaults: smooth_dual for 3D, subdivided_dual for 3S
+  --mode             : Dual construction: subdivided_dual or smooth_dual
+                         defaults: smooth_dual for 2D/3D, subdivided_dual for 3S
   --out_mesh         : Provide name for saved mesh
                          accepts: .med, .vtu, .vtk, .typ2
   --square_mesh_size : Provide mesh size for square mesh
@@ -81,6 +81,12 @@ int PdmtHelp()
 
   # Provide MED mesh name
   PDMT --mesh ./in.med --med_mesh_name my_mesh --out_mesh out.vtu
+
+  # Use the smooth 2D dual, connecting triangle barycentres directly
+  PDMT --dimension 2 --mode smooth_dual --mesh ./in.msh --out_mesh smooth.vtu
+
+  # Use the subdivided 2D dual, routing dual edges through primal edge centres
+  PDMT --dimension 2 --mode subdivided_dual --mesh ./in.msh --out_mesh subdivided.vtu
 
   # Convert a tetrahedral mesh to a 3D polyhedral VTU mesh
   PDMT --dimension 3 --mesh ./tetra.mesh --out_mesh polyhedra.vtu

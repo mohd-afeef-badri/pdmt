@@ -219,6 +219,12 @@ func int run2D (){
  string ThName      = getARGV( "--mesh" , "circle" );              // Name of the mesh
  string ThNameOut   = getARGV( "--out_mesh" , "PDMT_POLY_MESH_" ); // Name of the saved mesh
  string MedMeshName = getARGV( "--med_mesh_name" , "Mesh_1" );     // Name of the mesh
+ string dualMode    = getARGV( "--mode" , "smooth_dual" );         // smooth_dual or subdivided_dual
+ if (dualMode != "smooth_dual" && dualMode != "subdivided_dual") {
+   cout << "PDMT 2D --mode must be smooth_dual or subdivided_dual" << endl;
+   exit(1111);
+ }
+ int smoothDual2D = (dualMode == "smooth_dual");
  mesh   Th          = loadTheMesh( ThName , MedMeshName );         // function in meshIO.edp
 
 
@@ -281,6 +287,59 @@ func int run2D (){
     ThEiLab(e) = Th.be(e).label;                            // label on edge
   }
 
+  int[int] PrimalEdgeA(0), PrimalEdgeB(0), PrimalEdgeLab(0);
+  int[int,int] TriEdge(ThNt,3);
+
+  for(int t=0; t<ThNt; ++t){
+    for(int le=0; le<3; ++le){
+      int la = le;
+      int lb = (le + 1) % 3;
+      int a = Th[t][la];
+      int b = Th[t][lb];
+      if(a > b){
+        int tmp = a;
+        a = b;
+        b = tmp;
+      }
+
+      int foundEdge = -1;
+      for(int e=0; e<PrimalEdgeA.n; ++e)
+        if(PrimalEdgeA[e] == a && PrimalEdgeB[e] == b)
+          foundEdge = e;
+
+      if(foundEdge < 0){
+        foundEdge = PrimalEdgeA.n;
+        PrimalEdgeA.resize(PrimalEdgeA.n+1);
+        PrimalEdgeB.resize(PrimalEdgeB.n+1);
+        PrimalEdgeLab.resize(PrimalEdgeLab.n+1);
+        PrimalEdgeA[foundEdge] = a;
+        PrimalEdgeB[foundEdge] = b;
+        PrimalEdgeLab[foundEdge] = 0;
+      }
+
+      TriEdge(t,le) = foundEdge;
+    }
+  }
+
+  for(int be=0; be<ThNbe; ++be){
+    int a = Th.be(be)[0];
+    int b = Th.be(be)[1];
+    if(a > b){
+      int tmp = a;
+      a = b;
+      b = tmp;
+    }
+    for(int e=0; e<PrimalEdgeA.n; ++e)
+      if(PrimalEdgeA[e] == a && PrimalEdgeB[e] == b)
+        PrimalEdgeLab[e] = Th.be(be).label;
+  }
+
+  real[int] PrimalEdgeX(PrimalEdgeA.n), PrimalEdgeY(PrimalEdgeA.n);
+  for(int e=0; e<PrimalEdgeA.n; ++e){
+    PrimalEdgeX[e] = 0.5*(Th(PrimalEdgeA[e]).x + Th(PrimalEdgeB[e]).x);
+    PrimalEdgeY[e] = 0.5*(Th(PrimalEdgeA[e]).y + Th(PrimalEdgeB[e]).y);
+  }
+
 
 
 //-----------------------------------------------------------------------
@@ -293,7 +352,9 @@ func int run2D (){
 
 {
   int PhNn =  ThNt  + ThNnb + ThNbe;
-  int PhNp =  ThNni + ThNbe;
+  if(!smoothDual2D)
+    PhNn = ThNt + ThNnb + PrimalEdgeA.n;
+  int PhNp =  ThNn;
   int PhNe =  ThNbe*2;
 
   PhV.resize(PhNn,2);
@@ -329,6 +390,15 @@ func int run2D (){
     PhV(polynodeindex,1) = ThEiy(be);
     polynodeindex++;
   }
+
+  if(!smoothDual2D){
+    polynodeindex = ThNt + ThNnb;
+    for(int e=0; e<PrimalEdgeA.n; ++e){
+      PhV(polynodeindex,0) = PrimalEdgeX[e];
+      PhV(polynodeindex,1) = PrimalEdgeY[e];
+      polynodeindex++;
+    }
+  }
 }
 
 
@@ -345,6 +415,53 @@ macro vectorPushBack(V, p1, p2, p3)
    V#x[V#x.n-1]         = p1;
    V#y[V#y.n-1]         = p2;
    V#Index[V#Index.n-1] = p3;
+//
+
+macro vectorPushBackUnique(V, p1, p2, p3)
+   int pdmtAlreadyThere = 0;
+   for(int pdmtUniqueIt=0; pdmtUniqueIt<V#Index.n; ++pdmtUniqueIt)
+     if(V#Index[pdmtUniqueIt] == p3)
+       pdmtAlreadyThere = 1;
+   if(!pdmtAlreadyThere){
+     V#x.resize(V#x.n+1);
+     V#y.resize(V#y.n+1);
+     V#Index.resize(V#Index.n+1);
+
+     V#x[V#x.n-1]         = p1;
+     V#y[V#y.n-1]         = p2;
+     V#Index[V#Index.n-1] = p3;
+   }
+//
+
+// Order every collected dual point around its primal vertex.  Unlike a
+// convex hull, this keeps the edge midpoints that lie inside the hull of
+// the neighbouring triangle barycentres; those points are required by
+// the subdivided dual topology.
+macro orderPointsAroundVertex(V, cx, cy)
+   for(int pdmtOrderI=0; pdmtOrderI<V#Index.n-1; ++pdmtOrderI){
+     int pdmtOrderBest = pdmtOrderI;
+     real pdmtOrderAngleBest =
+       atan2(V#y[pdmtOrderI]-(cy), V#x[pdmtOrderI]-(cx));
+     for(int pdmtOrderJ=pdmtOrderI+1; pdmtOrderJ<V#Index.n; ++pdmtOrderJ){
+       real pdmtOrderAngle =
+         atan2(V#y[pdmtOrderJ]-(cy), V#x[pdmtOrderJ]-(cx));
+       if(pdmtOrderAngle < pdmtOrderAngleBest){
+         pdmtOrderBest = pdmtOrderJ;
+         pdmtOrderAngleBest = pdmtOrderAngle;
+       }
+     }
+     if(pdmtOrderBest != pdmtOrderI){
+       real pdmtOrderTmpX = V#x[pdmtOrderI];
+       real pdmtOrderTmpY = V#y[pdmtOrderI];
+       int  pdmtOrderTmpI = V#Index[pdmtOrderI];
+       V#x[pdmtOrderI] = V#x[pdmtOrderBest];
+       V#y[pdmtOrderI] = V#y[pdmtOrderBest];
+       V#Index[pdmtOrderI] = V#Index[pdmtOrderBest];
+       V#x[pdmtOrderBest] = pdmtOrderTmpX;
+       V#y[pdmtOrderBest] = pdmtOrderTmpY;
+       V#Index[pdmtOrderBest] = pdmtOrderTmpI;
+     }
+   }
 //
 
 {
@@ -366,6 +483,17 @@ macro vectorPushBack(V, p1, p2, p3)
         vectorPushBack(Pi, ThTix[][k], ThTiy[][k], k );
         PiNe[][v] = PiNe[][v] + 1;
         PhELabels[indexploy] = Th[k].region;
+
+        if(!smoothDual2D){
+          for(int le=0; le<3; ++le){
+            int ea = Th[k][le];
+            int eb = Th[k][(le+1)%3];
+            if(ea == v || eb == v){
+              int pe = TriEdge(k,le);
+              vectorPushBackUnique(Pi, PrimalEdgeX[pe], PrimalEdgeY[pe], int(ThNt + ThNnb + pe));
+            }
+          }
+        }
       }
 
        //---- original border nodes ----//
@@ -383,24 +511,40 @@ macro vectorPushBack(V, p1, p2, p3)
 
       for(int p=headvb[v]; p >=0; p=nextb[p]){
         int k = p/2;
-        vectorPushBack(Pi, ThEix(k), ThEiy(k), int(ThNt + ThNbe + k) );
-        PiNe[][v] = PiNe[][v] + 1;
+        int edgeNodeIndex = int(ThNt + ThNnb + k);
+        if(!smoothDual2D){
+          int ba = Th.be(k)[0];
+          int bb = Th.be(k)[1];
+          if(ba > bb){
+            int tmp = ba;
+            ba = bb;
+            bb = tmp;
+          }
+          int primalEdgeIndex = -1;
+          for(int pe=0; pe<PrimalEdgeA.n; ++pe)
+            if(PrimalEdgeA[pe] == ba && PrimalEdgeB[pe] == bb)
+              primalEdgeIndex = pe;
+          edgeNodeIndex = int(ThNt + ThNnb + primalEdgeIndex);
+        }
+        vectorPushBackUnique(Pi, ThEix(k), ThEiy(k), edgeNodeIndex );
 
         edgeLocalLab[count] = ThEiLab(k);
-        posVect[count] = int(ThNt + ThNbe + k);
+        posVect[count] = edgeNodeIndex;
         count++;
       }
 
-      pdmtConvexHull(Pix,Piy,PiIndex);
+      if(smoothDual2D)
+        pdmtConvexHull(Pix,Piy,PiIndex);
+      else
+        orderPointsAroundVertex(Pi, ThVix[][v], ThViy[][v]);
 
-      PhC[indexploy].resize(PiNe[][v]);
+      PhC[indexploy].resize(PiIndex.n);
 
       for(int kk=0; kk < PiIndex.n ; kk++)
         PhC[indexploy][kk] = PiIndex[kk];
 
 
      // add the boundary point //
-      int pos = 1;
       count   = 0;
       int[int] poskk (2);
 
@@ -411,29 +555,33 @@ macro vectorPushBack(V, p1, p2, p3)
         }
       }
 
-      if((poskk[1]- poskk[0]) > 1 ){
-          pos = poskk[1] + 2;
-      }else{
-          pos = poskk[1] + 1;
-      }
+      int pos = poskk[1];
+      if(poskk[0] > poskk[1])
+        pos = poskk[0];
+
+      // The two boundary midpoints are consecutive in the angular cycle.
+      // If they straddle the array boundary, append the primal vertex;
+      // otherwise insert it directly between them.
+      if(pos - (poskk[0] < poskk[1] ? poskk[0] : poskk[1]) > 1)
+        pos = PhC[indexploy].n;
 
       PhC[indexploy].resize(PhC[indexploy].n+1);
 
-      for (int i = PhC[indexploy].n -1  ; i >= pos; i--)
+      for (int i = PhC[indexploy].n -1  ; i > pos; i--)
         PhC[indexploy][i] = PhC[indexploy][i - 1];
 
-      PhC[indexploy][pos - 1 ] = pointBorder;
+      PhC[indexploy][pos] = pointBorder;
 
       PhE[indexedge].resize(2);
       PhE[indexedge][0] = posVect[0];
       PhE[indexedge][1] = pointBorder;
-      PhELabels[ThNni + ThNbe + indexedge] = edgeLocalLab[0];
+      PhELabels[ThNn + indexedge] = edgeLocalLab[0];
       indexedge++;
 
       PhE[indexedge].resize(2);
       PhE[indexedge][0] = pointBorder;
       PhE[indexedge][1] = posVect[1];
-      PhELabels[ThNni + ThNbe + indexedge] = edgeLocalLab[1];
+      PhELabels[ThNn + indexedge] = edgeLocalLab[1];
       indexedge++;
 
       indexploy++;
@@ -446,12 +594,26 @@ macro vectorPushBack(V, p1, p2, p3)
         vectorPushBack(Pi, ThTix[][k], ThTiy[][k], k );
         PiNe[][v] = PiNe[][v] + 1;
         PhELabels[indexploy] = Th[k].region;
+
+        if(!smoothDual2D){
+          for(int le=0; le<3; ++le){
+            int ea = Th[k][le];
+            int eb = Th[k][(le+1)%3];
+            if(ea == v || eb == v){
+              int pe = TriEdge(k,le);
+              vectorPushBackUnique(Pi, PrimalEdgeX[pe], PrimalEdgeY[pe], int(ThNt + ThNnb + pe));
+            }
+          }
+        }
       }
 
-      pdmtConvexHull(Pix,Piy,PiIndex);
+      if(smoothDual2D)
+        pdmtConvexHull(Pix,Piy,PiIndex);
+      else
+        orderPointsAroundVertex(Pi, ThVix[][v], ThViy[][v]);
 
-      PhC[indexploy].resize(PiNe[][v]);
-      for(int kk; kk < PiIndex.n ; kk++)
+      PhC[indexploy].resize(PiIndex.n);
+      for(int kk=0; kk < PiIndex.n ; kk++)
         PhC[indexploy][kk] = PiIndex[kk];
 
       indexploy++;
