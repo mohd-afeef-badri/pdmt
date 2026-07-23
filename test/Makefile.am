@@ -17,7 +17,9 @@ maintainer-clean-local: clean-local
 	@echo ""
 	rm  -rf Makefile Makefile.in
 
-check-local: test-vtk test-msh test-mesh test-med test-3d test-conserve-edge test-3s test-med-3d
+EXTRA_DIST = check_2d_dual_vtu.py
+
+check-local: test-vtk test-msh test-mesh test-med test-2d-modes test-3d test-conserve-edge test-3s test-med-3d
 	@echo ""
 	@echo "*============================================================*"
 	@echo " performing check for pdmt"
@@ -26,6 +28,14 @@ check-local: test-vtk test-msh test-mesh test-med test-3d test-conserve-edge tes
 
 UnitTestCovexHull: UnitTestCovexHull.edp
 	$(FFMPI) -np 1 UnitTestCovexHull.edp -v 0 -ns -nw > UnitTestCovexHull.log
+
+test-2d-modes: check_2d_dual_vtu.py
+	./../run/PDMT --dimension 2 --mesh square --square_mesh_size 4 --mode smooth_dual --out_mesh test_2d_smooth.vtu > test_2d_smooth.log
+	python3 ./check_2d_dual_vtu.py test_2d_smooth_0000.vtu --expect-polygons 15 --expect-boundary 24
+	./../run/PDMT --dimension 2 --mesh square --square_mesh_size 4 --mode subdivided_dual --out_mesh test_2d_subdivided_square.vtu > test_2d_subdivided_square.log
+	python3 ./check_2d_dual_vtu.py test_2d_subdivided_square_0000.vtu --expect-polygons 15 --expect-boundary 24 --more-connectivity-than test_2d_smooth_0000.vtu
+	./../run/PDMT --dimension 2 --mesh circle --circle_mesh_size 24 --mode subdivided_dual --out_mesh test_2d_subdivided_circle.vtu > test_2d_subdivided_circle.log
+	python3 ./check_2d_dual_vtu.py test_2d_subdivided_circle_0000.vtu
 
 test-3d: UnitTest3D.edp single_tetra.mesh3d
 	$(FFMPI) -np 1 UnitTest3D.edp -v 0 -nw > UnitTest3D.log
