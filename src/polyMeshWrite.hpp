@@ -28,6 +28,7 @@
 
 #include "typWriter.hpp"
 #include "vtkWriter.hpp"
+#include "polyMesh3DWrite.hpp"
 
 #ifdef MEDCOUPLING
 #include "MEDLoader.hxx"
@@ -53,7 +54,7 @@ class polyMeshWrite_Op : public E_F0mps
 public:
     Expression filename			                ;
 
-    static const int n_name_param = 4		        ;
+    static const int n_name_param = 6		        ;
     static basicAC_F0::name_and_type name_param[]	;
     Expression nargs[n_name_param]			;
 
@@ -77,7 +78,9 @@ basicAC_F0::name_and_type polyMeshWrite_Op<K>::name_param[] =
     {"nodes"   , &typeid(KNM<double>*)},
     {"cells"   , &typeid(KN<KN<long>>*)},
     {"edges"   , &typeid(KN<KN<long>>*)},
-    {"labels"  , &typeid(KN<long>*)}
+    {"labels"  , &typeid(KN<long>*)},
+    {"faces"   , &typeid(KN<KN<long>>*)},
+    {"faceLabels", &typeid(KN<long>*)}
 };
 
 
@@ -106,9 +109,12 @@ AnyType polyMeshWrite_Op<K>::operator()(Stack stack) const
     KN<KN<long>>   *CellsPoly = 0;
     KN<KN<long>>   *EdgesPoly = 0;
     KN<long>       *LabelsPoly= 0;
+    KN<KN<long>>   *FacesPoly = 0;
+    KN<long>       *FaceLabelsPoly = 0;
 
     bool withEdges = false;
     bool withLabel = false;
+    bool withFaces = false;
 
 
     if(nargs[0])
@@ -127,6 +133,17 @@ AnyType polyMeshWrite_Op<K>::operator()(Stack stack) const
      withLabel = true;
     }
 
+    if(nargs[4]){
+     FacesPoly = GetAny< KN<KN<long>> * >((*nargs[4])(stack));
+     withFaces = true;
+    }
+
+    if(nargs[5])
+     FaceLabelsPoly = GetAny< KN<long> * >((*nargs[5])(stack));
+
+    if(!nodesPoly || !CellsPoly)
+      ExecError("PdmtPolyMeshWrite: nodes and cells are required");
+
     if(verbosity){
      std::cout << "------------------------------------------------------ " <<  std::endl;
      std::cout << "PMDT will now write the polyhedral mesh " << *inputfile  << std::endl;
@@ -140,11 +157,16 @@ AnyType polyMeshWrite_Op<K>::operator()(Stack stack) const
     //std::size_t writeMedFile = (fullFileName).find(".vtk");
 
     if ( (fullFileName).find(".typ2") != std::string::npos){
+     if(withFaces)
+       ExecError("PdmtPolyMeshWrite: .typ2 does not support 3D polyhedra; use .vtk or .vtu");
      writePolyTyp(inputfile,nodesPoly,CellsPoly);
     }
 
     if ( (fullFileName).find(".vtk") != std::string::npos){
-     writePolyVtk(inputfile,nodesPoly,CellsPoly,EdgesPoly, LabelsPoly);
+     if(withFaces)
+       writePolyVtk3D(inputfile,nodesPoly,CellsPoly,FacesPoly,LabelsPoly,FaceLabelsPoly);
+     else
+       writePolyVtk(inputfile,nodesPoly,CellsPoly,EdgesPoly, LabelsPoly);
     }
 
     if ( (fullFileName).find(".vtu") != std::string::npos)
@@ -154,7 +176,10 @@ AnyType polyMeshWrite_Op<K>::operator()(Stack stack) const
      string basVtuFileName = "";
 
      parallelIO(inputfile, 0, &timePvd, &mpiSize, &basVtuFileName);
-     writePolyVtu(inputfile,nodesPoly,CellsPoly,EdgesPoly, LabelsPoly);
+     if(withFaces)
+       writePolyVtu3D(inputfile,nodesPoly,CellsPoly,FacesPoly,LabelsPoly,FaceLabelsPoly);
+     else
+       writePolyVtu(inputfile,nodesPoly,CellsPoly,EdgesPoly, LabelsPoly);
 
      if( mpiSize > 1 )
        PvtuWriter(inputfile,mpiSize,timePvd,basVtuFileName);
@@ -163,8 +188,16 @@ AnyType polyMeshWrite_Op<K>::operator()(Stack stack) const
 
 #ifdef MEDCOUPLING
     if ((fullFileName).find(".med") != std::string::npos) {
-     writePolyMed(inputfile,nodesPoly,CellsPoly,EdgesPoly, LabelsPoly);
+     if(withFaces)
+       writePolyMed3D(inputfile,nodesPoly,CellsPoly,FacesPoly,LabelsPoly,FaceLabelsPoly);
+     else if(nodesPoly->M() >= 3)
+       writePolySurfaceMed(inputfile,nodesPoly,CellsPoly,LabelsPoly);
+     else
+       writePolyMed(inputfile,nodesPoly,CellsPoly,EdgesPoly, LabelsPoly);
     }
+#else
+    if ((fullFileName).find(".med") != std::string::npos)
+      ExecError("PdmtPolyMeshWrite: this PDMT build has no MEDCoupling support");
 #endif
 
     return 0L;

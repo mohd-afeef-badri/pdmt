@@ -47,6 +47,8 @@ install-exec-local:
 if !WITHMEDIO
 	find . -name meshIO.idp.tmp -exec sed -i -e "s#load \"medio\"##g" {} \;
 	find . -name meshIO.idp.tmp -exec sed -i -e "s#Th2D = loadmedmesh(meshName, meshname = medMeshName);#cout<<\"No med support PDMT not compiled with medio\"<<endl;#g" {} \;
+	find . -name meshIO.idp.tmp -exec sed -i -e "s#Th3D = PdmtLoadMedMesh3(meshName, meshname = medMeshName);#cout<<\"No med support PDMT not compiled with medio\"<<endl;#g" {} \;
+	find . -name meshIO.idp.tmp -exec sed -i -e "s#ThS = PdmtLoadMedMeshS(meshName, meshname = medMeshName);#cout<<\"No med support PDMT not compiled with medio\"<<endl;#g" {} \;
 endif
 	cp pdmt.edp pdmt.edp.tmp && find . -name pdmt.edp.tmp -exec sed -i -e "s#./../src/pdmt#pdmt#g" {} \;
 	mv meshIO.idp.tmp ${prefix}/lib/meshIO.idp
@@ -120,4 +122,3 @@ maintainer-clean-local: clean-local
 	@echo "*============================================================*"
 	@echo ""
 	rm  -rf Makefile Makefile.in
-
