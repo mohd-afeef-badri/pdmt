@@ -2,12 +2,18 @@ LIST_COMPILE= pdmt.cpp
 
 HPP_DEP = pdmtFunctions.hpp \
 convexHull.hpp \
+dualMesh3D.hpp \
+dualMeshSurface3D.hpp \
+gmshFeatureEdges.hpp \
+medFeatureEdges.hpp \
 polyMeshWrite.hpp \
+polyMesh3DWrite.hpp \
 pdmtHelp.hpp \
 pdmtVersion.hpp \
 vtkWriter.hpp  \
 typWriter.hpp  \
-medWriter.hpp
+medWriter.hpp \
+medMeshLoader.hpp
 
 
 DEP1 = pdmt.$(SO_SUFFIX)

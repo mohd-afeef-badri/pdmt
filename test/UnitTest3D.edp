@@ -1,0 +1,118 @@
+load "./../src/pdmt"
+
+mesh3 Th = readmesh3("single_tetra.mesh3d");
+
+real[int,int] nodes(0,0);
+int[int][int] faces;
+int[int][int] cells;
+int[int] labels;
+int[int] faceLabels;
+
+int numberOfCells = PdmtBuildDual3D(Th,
+    nodes = nodes,
+    faces = faces,
+    cells = cells,
+    labels = labels,
+    faceLabels = faceLabels);
+
+if (numberOfCells != 4) exit(101);
+if (nodes.n != 15 || nodes.m != 3) exit(102);
+if (faces.n != 18) exit(103);
+if (cells.n != 4) exit(104);
+if (labels.n != 4 || faceLabels.n != 18) exit(105);
+
+int boundaryFaces = 0;
+for (int f = 0; f < faceLabels.n; ++f)
+  if (faceLabels[f] != 0) boundaryFaces++;
+if (boundaryFaces != 12) exit(106);
+
+for (int c = 0; c < cells.n; ++c) {
+  if (cells[c].n != 6) exit(107);
+  for (int f = 0; f < cells[c].n; ++f) {
+    int face = abs(cells[c][f]) - 1;
+    if (faces[face].n != 4) exit(112);
+  }
+}
+
+PdmtPolyMeshWrite("single_tetra_poly.vtu",
+    nodes = nodes, cells = cells, faces = faces,
+    labels = labels, faceLabels = faceLabels);
+PdmtPolyMeshWrite("single_tetra_poly.vtk",
+    nodes = nodes, cells = cells, faces = faces,
+    labels = labels, faceLabels = faceLabels);
+
+cout << "PDMT 3D unit test passed" << endl;
+
+// With feature preservation disabled, the same-label boundary is merged into
+// one smooth patch face per dual cell, as in OpenFOAM's normal dual mode.
+real[int,int] smoothNodes(0,0);
+int[int][int] smoothFaces;
+int[int][int] smoothCells;
+int[int] smoothLabels;
+int[int] smoothFaceLabels;
+numberOfCells = PdmtBuildDual3D(Th,
+    nodes = smoothNodes,
+    faces = smoothFaces,
+    cells = smoothCells,
+    labels = smoothLabels,
+    faceLabels = smoothFaceLabels,
+    featureAngle = 180.0);
+if (numberOfCells != 4 || smoothNodes.n != 5) exit(113);
+if (smoothFaces.n != 10 || smoothCells.n != 4) exit(114);
+for (int c = 0; c < smoothCells.n; ++c)
+  if (smoothCells[c].n != 4) exit(115);
+
+cout << "PDMT 3D smooth-boundary test passed" << endl;
+
+// Exercise interior vertices, edges, faces, and shared dual faces.
+mesh3 Cube = cube(2, 2, 2);
+real[int,int] cubeNodes(0,0);
+int[int][int] cubeFaces;
+int[int][int] cubeCells;
+int[int] cubeLabels;
+int[int] cubeFaceLabels;
+
+numberOfCells = PdmtBuildDual3D(Cube,
+    nodes = cubeNodes,
+    faces = cubeFaces,
+    cells = cubeCells,
+    labels = cubeLabels,
+    faceLabels = cubeFaceLabels,
+    mode = "smooth_dual");
+
+if (numberOfCells != Cube.nv || cubeCells.n != Cube.nv) exit(108);
+if (cubeNodes.m != 3 || cubeFaces.n == 0) exit(109);
+for (int c = 0; c < cubeCells.n; ++c) {
+  if (cubeCells[c].n < 4) exit(110);
+  for (int f = 0; f < cubeCells[c].n; ++f)
+    if (cubeCells[c][f] == 0) exit(111);
+}
+
+cout << "PDMT 3D shared-topology test passed" << endl;
+
+// subdivided_dual retains tetra-face barycentres that smooth_dual removes
+// between neighboring tetrahedron barycentres.
+real[int,int] subdividedNodes(0,0);
+int[int][int] subdividedFaces;
+int[int][int] subdividedCells;
+int[int] subdividedLabels;
+int[int] subdividedFaceLabels;
+
+numberOfCells = PdmtBuildDual3D(Cube,
+    nodes = subdividedNodes,
+    faces = subdividedFaces,
+    cells = subdividedCells,
+    labels = subdividedLabels,
+    faceLabels = subdividedFaceLabels,
+    mode = "subdivided_dual");
+if (numberOfCells != Cube.nv || subdividedFaces.n != cubeFaces.n) exit(116);
+if (subdividedNodes.n <= cubeNodes.n) exit(117);
+
+int smoothConnectivity = 0, subdividedConnectivity = 0;
+for (int face = 0; face < cubeFaces.n; ++face)
+  smoothConnectivity += cubeFaces[face].n;
+for (int face = 0; face < subdividedFaces.n; ++face)
+  subdividedConnectivity += subdividedFaces[face].n;
+if (subdividedConnectivity <= smoothConnectivity) exit(118);
+
+cout << "PDMT 3D dual-mode test passed" << endl;

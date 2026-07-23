@@ -51,7 +51,8 @@ void writePolyVtu(std::string const * fineName, KNM < double > * nodesPoly, KN <
       "        <DataArray type=\"Float32\" Name=\"Points\" NumberOfComponents=\"3\" format=\"ascii\">\n\t";
 
     for (int i = 0; i < NumberOfPoints; i++)
-      polyWrite << ( * nodesPoly)(i, 0) << "\t" << ( * nodesPoly)(i, 1) << "\t 0\n\t";
+      polyWrite << ( * nodesPoly)(i, 0) << "\t" << ( * nodesPoly)(i, 1) << "\t"
+                << (nodesPoly->M() >= 3 ? (*nodesPoly)(i, 2) : 0.0) << "\n\t";
 
     polyWrite << "\n        </DataArray>\n" <<
       "      </Points>\n";
@@ -146,7 +147,8 @@ void writePolyVtk(std::string const * fineName, KNM < double > * nodesPoly, KN <
 
     polyWrite << "POINTS " << TotalNodes << " float\n";
     for (int i = 0; i < TotalNodes; i++)
-      polyWrite << ( * nodesPoly)(i, 0) << "\t" << ( * nodesPoly)(i, 1) << "\t 0\n";
+      polyWrite << ( * nodesPoly)(i, 0) << "\t" << ( * nodesPoly)(i, 1) << "\t"
+                << (nodesPoly->M() >= 3 ? (*nodesPoly)(i, 2) : 0.0) << "\n";
   }
 
   //------------ Write cells ----------------//

@@ -1,0 +1,57 @@
+load "./../src/pdmt"
+load "gmsh"
+
+string inputMesh = "physical_edge.msh3d";
+mesh3 Th = gmshload3(inputMesh);
+
+real[int,int] smoothNodes(0,0), conservedNodes(0,0);
+int[int][int] smoothFaces, smoothCells, conservedFaces, conservedCells;
+int[int] smoothLabels, smoothFaceLabels, conservedLabels, conservedFaceLabels;
+
+int smoothCellCount = PdmtBuildDual3D(Th,
+    nodes=smoothNodes, faces=smoothFaces, cells=smoothCells,
+    labels=smoothLabels, faceLabels=smoothFaceLabels,
+    featureAngle=45.0);
+
+int conservedCellCount = PdmtBuildDual3D(Th,
+    nodes=conservedNodes, faces=conservedFaces, cells=conservedCells,
+    labels=conservedLabels, faceLabels=conservedFaceLabels,
+    featureAngle=45.0, meshFile=inputMesh, conserveEdge="bla",
+    mode="smooth_dual");
+
+if (smoothCellCount != Th.nv || conservedCellCount != Th.nv) exit(201);
+// Physical curve "bla" is a diagonal across the planar z=0 face. Its
+// midpoint must be retained even though the angle criterion removes the
+// coplanar edge.
+int startNode = -1, midpointNode = -1, endNode = -1;
+for (int node = 0; node < conservedNodes.n; ++node) {
+  if (abs(conservedNodes(node,0)) < 1.e-10 &&
+      abs(conservedNodes(node,1)) < 1.e-10 &&
+      abs(conservedNodes(node,2)) < 1.e-10)
+    startNode = node;
+  if (abs(conservedNodes(node,0)-0.5) < 1.e-10 &&
+      abs(conservedNodes(node,1)-0.5) < 1.e-10 &&
+      abs(conservedNodes(node,2)) < 1.e-10)
+    midpointNode = node;
+  if (abs(conservedNodes(node,0)-1.0) < 1.e-10 &&
+      abs(conservedNodes(node,1)-1.0) < 1.e-10 &&
+      abs(conservedNodes(node,2)) < 1.e-10)
+    endNode = node;
+}
+if (startNode < 0 || midpointNode < 0 || endNode < 0) exit(202);
+
+int firstHalf = 0, secondHalf = 0;
+for (int face = 0; face < conservedFaces.n; ++face)
+  for (int iv = 0; iv < conservedFaces[face].n; ++iv) {
+    int a = conservedFaces[face][iv];
+    int b = conservedFaces[face][(iv+1)%conservedFaces[face].n];
+    if ((a == startNode && b == midpointNode) ||
+        (a == midpointNode && b == startNode)) firstHalf = 1;
+    if ((a == midpointNode && b == endNode) ||
+        (a == endNode && b == midpointNode)) secondHalf = 1;
+  }
+if (!firstHalf || !secondHalf) exit(205);
+if (conservedNodes.n <= smoothNodes.n) exit(204);
+if (conservedFaces.n <= smoothFaces.n) exit(203);
+
+cout << "PDMT named Gmsh edge conservation test passed" << endl;

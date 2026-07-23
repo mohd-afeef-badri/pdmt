@@ -1,0 +1,40 @@
+load "./../src/pdmt"
+load "./../ext/medio-1.1/src/medio"
+load "gmsh"
+
+// Exercise tetrahedral MED input and native polyhedral MED output.
+mesh3 TetInput = readmesh3("single_tetra.mesh3d");
+savemedmesh(TetInput, "single_tetra_input.med");
+mesh3 Tet = PdmtLoadMedMesh3("single_tetra_input.med",
+                             meshname="TetrahedralMesh");
+if (Tet.nv != 4 || Tet.nt != 1 || Tet.nbe != 4) exit(401);
+
+real[int,int] volumeNodes(0,0);
+int[int][int] volumeFaces, volumeCells;
+int[int] volumeLabels, volumeFaceLabels;
+int volumeCount = PdmtBuildDual3D(Tet,
+    nodes=volumeNodes, faces=volumeFaces, cells=volumeCells,
+    labels=volumeLabels, faceLabels=volumeFaceLabels);
+if (volumeCount != 4) exit(402);
+PdmtPolyMeshWrite("single_tetra_poly.med",
+    nodes=volumeNodes, faces=volumeFaces, cells=volumeCells,
+    labels=volumeLabels, faceLabels=volumeFaceLabels);
+
+// Exercise triangular-surface MED input and polygonal-surface MED output.
+meshS SurfaceInput = gmshloadS("closed_surface.msh3d");
+savemedmesh(SurfaceInput, "closed_surface_input.med");
+meshS Surface = PdmtLoadMedMeshS("closed_surface_input.med",
+                                 meshname="TriangularMesh");
+if (Surface.nv != 4 || Surface.nt != 4) exit(403);
+
+real[int,int] surfaceNodes(0,0);
+int[int][int] surfaceCells;
+int[int] surfaceLabels;
+int surfaceCount = PdmtBuildDual3S(Surface,
+    nodes=surfaceNodes, cells=surfaceCells, labels=surfaceLabels,
+    featureAngle=180.0, mode="smooth_dual");
+if (surfaceCount != 4) exit(404);
+PdmtPolyMeshWrite("closed_surface_poly.med",
+    nodes=surfaceNodes, cells=surfaceCells, labels=surfaceLabels);
+
+cout << "PDMT 3D/3S MED I/O unit test passed" << endl;
