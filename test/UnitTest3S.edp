@@ -1,0 +1,84 @@
+load "./../src/pdmt"
+load "gmsh"
+
+string inputMesh = "folded_surface_edge.msh3d";
+meshS Th = gmshloadS(inputMesh);
+
+real[int,int] smoothNodes(0,0), angleNodes(0,0), conservedNodes(0,0);
+int[int][int] smoothCells, angleCells, conservedCells;
+int[int] smoothLabels, angleLabels, conservedLabels;
+
+int smoothCount = PdmtBuildDual3S(Th,
+    nodes=smoothNodes, cells=smoothCells, labels=smoothLabels,
+    featureAngle=180.0);
+if (smoothCount != 4 || smoothCells.n != 4 || smoothNodes.m != 3) exit(301);
+
+// The two triangles meet at about 54.7 degrees, so angle 45 must split the
+// dual fans at both endpoints of their common edge.
+int angleCount = PdmtBuildDual3S(Th,
+    nodes=angleNodes, cells=angleCells, labels=angleLabels,
+    featureAngle=45.0);
+if (angleCount != 6 || angleCells.n != 6) exit(302);
+
+// At angle 180 the same split must be produced explicitly by physical curve
+// "bla", which is the common edge from (0,0,0) to (1,1,0).
+int conservedCount = PdmtBuildDual3S(Th,
+    nodes=conservedNodes, cells=conservedCells, labels=conservedLabels,
+    featureAngle=180.0, meshFile=inputMesh, conserveEdge="bla",
+    mode="smooth_dual");
+if (conservedCount != 6 || conservedCells.n != 6) exit(303);
+if (conservedLabels.n != conservedCells.n) exit(304);
+
+int startNode = -1, midpointNode = -1, endNode = -1;
+for (int node = 0; node < conservedNodes.n; ++node) {
+  if (abs(conservedNodes(node,0)) < 1.e-10 &&
+      abs(conservedNodes(node,1)) < 1.e-10 &&
+      abs(conservedNodes(node,2)) < 1.e-10) startNode = node;
+  if (abs(conservedNodes(node,0)-0.5) < 1.e-10 &&
+      abs(conservedNodes(node,1)-0.5) < 1.e-10 &&
+      abs(conservedNodes(node,2)) < 1.e-10) midpointNode = node;
+  if (abs(conservedNodes(node,0)-1.0) < 1.e-10 &&
+      abs(conservedNodes(node,1)-1.0) < 1.e-10 &&
+      abs(conservedNodes(node,2)) < 1.e-10) endNode = node;
+}
+if (startNode < 0 || midpointNode < 0 || endNode < 0) exit(305);
+
+int firstHalf = 0, secondHalf = 0;
+for (int cell = 0; cell < conservedCells.n; ++cell)
+  for (int iv = 0; iv < conservedCells[cell].n; ++iv) {
+    int a = conservedCells[cell][iv];
+    int b = conservedCells[cell][(iv+1)%conservedCells[cell].n];
+    if ((a == startNode && b == midpointNode) ||
+        (a == midpointNode && b == startNode)) firstHalf = 1;
+    if ((a == midpointNode && b == endNode) ||
+        (a == endNode && b == midpointNode)) secondHalf = 1;
+  }
+if (!firstHalf || !secondHalf) exit(306);
+
+// On a closed smooth fan, smooth_dual contains only neighboring triangle
+// barycentres. subdivided_dual additionally passes through all edge midpoints.
+meshS Closed = gmshloadS("closed_surface.msh3d");
+real[int,int] closedSubdividedNodes(0,0), closedSmoothNodes(0,0);
+int[int][int] closedSubdividedCells, closedSmoothCells;
+int[int] closedSubdividedLabels, closedSmoothLabels;
+
+int closedCount = PdmtBuildDual3S(Closed,
+    nodes=closedSubdividedNodes, cells=closedSubdividedCells,
+    labels=closedSubdividedLabels, featureAngle=180.0,
+    mode="subdivided_dual");
+if (closedCount != 4 || closedSubdividedNodes.n != 10) exit(307);
+
+closedCount = PdmtBuildDual3S(Closed,
+    nodes=closedSmoothNodes, cells=closedSmoothCells,
+    labels=closedSmoothLabels, featureAngle=180.0,
+    mode="smooth_dual");
+if (closedCount != 4 || closedSmoothNodes.n != 4) exit(308);
+for (int cell = 0; cell < closedSmoothCells.n; ++cell)
+  if (closedSmoothCells[cell].n != 3) exit(309);
+
+PdmtPolyMeshWrite("folded_surface_poly.vtu",
+    nodes=conservedNodes, cells=conservedCells, labels=conservedLabels);
+PdmtPolyMeshWrite("folded_surface_poly.vtk",
+    nodes=conservedNodes, cells=conservedCells, labels=conservedLabels);
+
+cout << "PDMT 3S surface dual test passed" << endl;
