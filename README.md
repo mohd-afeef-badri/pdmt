@@ -134,7 +134,7 @@ After installation is done you can simply launch the PDMT mesh conversion via a 
 - `--dimension`: input mesh type (`2` by default, `3` for tetrahedra, or `3S` for a triangular surface embedded in 3D).
 - `--feature_angle`: preserve 3D boundary edges sharper than this angle (`45` degrees by default).
 - `--conserve_edge`: comma-separated Gmsh physical edge-group names that must remain as feature-edge chains in the 3D polyhedral boundary.
-- `--mode`: 3D/3S dual construction, either `subdivided_dual` or `smooth_dual`. The backward-compatible defaults are `smooth_dual` for 3D and `subdivided_dual` for 3S.
+- `--mode`: dual construction for every dimension, either `subdivided_dual` or `smooth_dual`. The defaults are `smooth_dual` for 2D/3D and `subdivided_dual` for 3S.
 
 ![image](https://github.com/mohd-afeef-badri/pdmt/assets/52162083/8ae5798d-5a4f-474d-ae39-c7207085f7bd)
 ![image](https://github.com/mohd-afeef-badri/pdmt/assets/52162083/03f0e8ae-75dd-4823-870b-4c65fab363fe)
@@ -145,6 +145,32 @@ After installation is done you can simply launch the PDMT mesh conversion via a 
 ```
 PDMT --debug --mesh /your/mesh/file.mesh
 ```
+
+### 2D polygonal meshes
+
+Use `--dimension 2` to convert a planar triangular mesh into a polygonal dual mesh. Each input vertex produces one output polygon.
+
+The default `--mode smooth_dual` connects neighboring triangle barycentres directly. This is the original PDMT 2D construction and produces the smallest number of polygon edges:
+
+```bash
+PDMT --dimension 2 \
+  --mesh square \
+  --square_mesh_size 4 \
+  --mode smooth_dual \
+  --out_mesh square_smooth.vtu
+```
+
+With `--mode subdivided_dual`, every dual line passes through the corresponding primal-edge midpoint. Around an interior primal vertex, the polygon therefore alternates between triangle barycentres and edge midpoints. Boundary polygons also retain the original boundary vertex, so the output remains conforming and has the same exterior boundary as the input mesh:
+
+```bash
+PDMT --dimension 2 \
+  --mesh square \
+  --square_mesh_size 4 \
+  --mode subdivided_dual \
+  --out_mesh square_subdivided.vtu
+```
+
+The two modes support the same 2D input and output formats. Use `subdivided_dual` when the dual should explicitly follow the barycentric subdivision, and `smooth_dual` when straighter, less subdivided polygon boundaries are preferred.
 
 ### 3D Polyhedral meshes
 
