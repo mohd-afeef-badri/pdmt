@@ -131,6 +131,10 @@ After installation is done you can simply launch the PDMT mesh conversion via a 
 
 - `--debug`    : to print some verbos info about the meshing process
 - `--mesh`     : to provide mesh for conversion, it accepts .mesh, .msh, .vtk, .med(conditional) formats. Also accepts ("square" or "circle").
+- `--dimension`: input mesh type (`2` by default, `3` for tetrahedra, or `3S` for a triangular surface embedded in 3D).
+- `--feature_angle`: preserve 3D boundary edges sharper than this angle (`45` degrees by default).
+- `--conserve_edge`: comma-separated Gmsh physical edge-group names that must remain as feature-edge chains in the 3D polyhedral boundary.
+- `--mode`: 3D/3S dual construction, either `subdivided_dual` or `smooth_dual`. The backward-compatible defaults are `smooth_dual` for 3D and `subdivided_dual` for 3S.
 
 ![image](https://github.com/mohd-afeef-badri/pdmt/assets/52162083/8ae5798d-5a4f-474d-ae39-c7207085f7bd)
 ![image](https://github.com/mohd-afeef-badri/pdmt/assets/52162083/03f0e8ae-75dd-4823-870b-4c65fab363fe)
@@ -140,6 +144,112 @@ After installation is done you can simply launch the PDMT mesh conversion via a 
 
 ```
 PDMT --debug --mesh /your/mesh/file.mesh
+```
+
+### 3D Polyhedral meshes
+
+PDMT can convert a  tetrahedral mesh into a conforming polyhedral mesh. Every input vertex is treated as a seed/generator for polytopal mesh hence produces one polyhedron. Triangle fans around each primal edge are merged into a single polygonal face, matching the normal dual topology instead of exposing the barycentric sub-tetrahedra. Boundary labels and sharp feature edges are retained.
+
+Use `--dimension 3` and write legacy VTK (`.vtk`), XML VTK (`.vtu`), or—when PDMT is built with MEDCoupling—MED (`.med`):
+
+```bash
+PDMT --dimension 3 \
+	--mesh /your/mesh/tetrahedra.mesh \
+  	--out_mesh polyhedra.vtu
+```
+
+The default `--feature_angle 45` keeps sharp corners while merging smooth surface regions. Use a larger value for more aggressive merging, for example`--feature_angle 80`; use a smaller value to preserve more boundary edges. Edges separating different boundary labels are always preserved.
+
+Tetrahedral 3D mode supports both dual representations. `smooth_dual` is the default and connects neighboring tetrahedron barycentres directly across ordinary internal subdivisions. `subdivided_dual` retains the intervening tetra-face barycentres and smooth boundary-edge midpoints:
+
+```bash
+PDMT --dimension 3 \
+  --mesh tetrahedra.msh \
+  --mode subdivided_dual \
+  --out_mesh subdivided_polyhedra.vtu
+```
+
+In either mode, domain-boundary anchors, sharp features, region interfaces, and curves selected by `--conserve_edge` take priority and remain in the polyhedron connectivity. This keeps every polyhedron closed and conforming.
+
+Named physical curve groups in an ASCII Gmsh 2.x input can be protected independently of the angle criterion. For example, to retain the group `bla` from `cylinder_edge.msh`:
+
+```bash
+PDMT --dimension 3 \
+  --mesh msh/cylinder_edge.msh \
+  --conserve_edge bla \
+  --out_mesh cylinder_poly.vtu
+```
+
+Multiple group names are comma-separated, for example `--conserve_edge inlet_rim,outlet_rim`. Each original curve segment remains on the output boundary as a geometrically identical chain split at the dual edge midpoint.
+
+The 3D loader accepts tetrahedral `.mesh`, `.msh`, `.vtk`, and—when PDMT is built with MED support—`.med` files. Select a non-default MED input mesh with `--med_mesh_name`. MED output uses native `NORM_POLYHED` cells and stores exterior polygonal faces at level `-1`, including boundary family labels.
+For example:
+
+```bash
+PDMT --dimension 3 --mesh tetrahedra.med \
+  --med_mesh_name TetrahedralMesh --out_mesh polyhedra.med
+```
+
+Three-dimensional `.typ2` output is not supported. The VTK files use cell type 42 (`VTK_POLYHEDRON`). In VTU output, `pdmt_face_connectivity`,`pdmt_face_offsets`, and `pdmt_face_labels` are stored as field data so polygon topology and boundary tags remain available to downstream tools.
+
+The plugin API is also available directly in FreeFEM:
+
+```freefem
+real[int,int] nodes(0,0);
+int[int][int] faces, cells;
+int[int] cellLabels, faceLabels;
+
+PdmtBuildDual3D(Th3,
+  nodes=nodes, faces=faces, cells=cells,
+  labels=cellLabels, faceLabels=faceLabels,
+  featureAngle=45.0,
+  meshFile="tetrahedra.msh", conserveEdge="ridge,corner",
+  mode="smooth_dual");
+
+PdmtPolyMeshWrite("polyhedra.vtu",
+  nodes=nodes, cells=cells, faces=faces,
+  labels=cellLabels, faceLabels=faceLabels);
+```
+
+Cell face references use signed, one-based face IDs: the sign records whether the face orientation agrees with the global face connectivity.
+
+### 3D  surface polytopal meshes
+
+Use `--dimension 3S` for a triangular surface embedded in 3D. Each input vertex produces one dual polygon on a smooth part of the surface. A sharp, boundary, region-interface, or explicitly conserved edge splits the polygon fan so the feature remains part of the polygon connectivity.
+
+```bash
+PDMT --dimension 3S \
+  --mesh surface.msh \
+  --feature_angle 45 \
+  --conserve_edge ridge,rim \
+  --out_mesh surface_dual.vtu
+```
+
+The default `--mode subdivided_dual` connects triangle barycentres through primal-edge midpoints and therefore follows the piecewise-triangular surface. With `--mode smooth_dual`, ordinary midpoint vertices are removed and adjacent triangle barycentres are connected by straight polygon edges:
+
+```bash
+PDMT --dimension 3S \
+  --mesh surface.msh \
+  --mode smooth_dual \
+  --conserve_edge ridge,rim \
+  --out_mesh smooth_surface_dual.vtu
+```
+
+Protected geometry has priority in both modes. Boundary edges, edges selected by `--feature_angle`, region interfaces, and `--conserve_edge` curves retain their primal vertices and edge midpoints so those feature segments remain in the output connectivity.
+
+The 3S loader accepts `.mesh`, `.msh`, `.vtk`, and—when MED support is enabled—`.med` triangular surfaces. It writes `.vtk`, `.vtu`, or native MED polygon cells. Use `--med_mesh_name` for the surface mesh name inside an input MED file:
+
+```bash
+PDMT --dimension 3S --mesh surface.med \
+  --med_mesh_name TriangularMesh --out_mesh surface_dual.med
+```
+
+Named edge groups selected with `--conserve_edge` still require an ASCII Gmsh 2.x input, as for the volumetric 3D mode.
+
+The Gmsh file must contain type-2 triangle elements; exporting only the physical curves is not a surface mesh. From a `.geo` file, an ASCII 2.x surface export can be generated with:
+
+```bash
+gmsh -2 model.geo -format msh2 -o surface.msh
 ```
 
 For generating meshes that are presented above you can use the mesh files provided in `msh` folder.  From top left clockwise:
