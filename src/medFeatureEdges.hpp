@@ -129,17 +129,24 @@ inline std::set<EdgeKey> readMedFeatureEdges(
 
   const std::vector<std::string> levelGroups =
       fileMesh->getGroupsOnSpecifiedLev(edgeLevel);
-  std::set<std::string> foundNames;
-  for (std::vector<std::string>::const_iterator group = levelGroups.begin();
-       group != levelGroups.end(); ++group)
-    if (requested.find(*group) != requested.end())
-      foundNames.insert(*group);
-  if (foundNames.size() != requested.size()) {
+  std::set<std::string> selectedNames;
+  if (allPhysicalEdgeGroupsRequested(requested)) {
+    selectedNames.insert(levelGroups.begin(), levelGroups.end());
+    if (selectedNames.empty())
+      ExecError(std::string(context) + ": MED edge level contains no groups");
+  } else {
+    for (std::vector<std::string>::const_iterator group = levelGroups.begin();
+         group != levelGroups.end(); ++group)
+      if (requested.find(*group) != requested.end())
+        selectedNames.insert(*group);
+  }
+  if (!allPhysicalEdgeGroupsRequested(requested) &&
+      selectedNames.size() != requested.size()) {
     std::ostringstream message;
     message << context << ": unknown MED edge group(s):";
     for (std::set<std::string>::const_iterator name = requested.begin();
          name != requested.end(); ++name)
-      if (foundNames.find(*name) == foundNames.end())
+      if (selectedNames.find(*name) == selectedNames.end())
         message << " " << *name;
     ExecError(message.str());
   }
@@ -147,8 +154,8 @@ inline std::set<EdgeKey> readMedFeatureEdges(
   const std::map<long, long> mappedNodes =
       mapMedNodesToMeshVertices(*edgeMesh, mesh, context);
   std::set<EdgeKey> result;
-  for (std::set<std::string>::const_iterator name = requested.begin();
-       name != requested.end(); ++name) {
+  for (std::set<std::string>::const_iterator name = selectedNames.begin();
+       name != selectedNames.end(); ++name) {
     MCAuto<DataArrayIdType> groupCells =
         fileMesh->getGroupArr(edgeLevel, *name, false);
     if (!groupCells || groupCells->getNumberOfTuples() == 0)

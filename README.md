@@ -143,7 +143,7 @@ After installation is done you can simply launch the PDMT mesh conversion via a 
 - `--mesh`     : to provide mesh for conversion, it accepts .mesh, .msh, .vtk, .med(conditional) formats. Also accepts ("square" or "circle").
 - `--dimension`: input mesh type (`2` by default, `3` for tetrahedra, or `3S` for a triangular surface embedded in 3D).
 - `--feature_angle`: preserve 3D boundary edges sharper than this angle (`45` degrees by default).
-- `--conserve_edge`: comma-separated Gmsh physical edge-group names that must remain as feature-edge chains in the 3D polyhedral boundary.
+- `--conserve_edge`: comma-separated Gmsh/MED edge-group names that must remain as feature-edge chains in 3D/3S output, or `ALL` to conserve every available edge group.
 - `--mode`: dual construction for every dimension, either `subdivided_dual` or `smooth_dual`. The defaults are `smooth_dual` for 2D/3D and `subdivided_dual` for 3S.
 
 ![image](https://github.com/mohd-afeef-badri/pdmt/assets/52162083/8ae5798d-5a4f-474d-ae39-c7207085f7bd)
@@ -218,6 +218,18 @@ PDMT --dimension 3 \
 
 Multiple group names are comma-separated, for example `--conserve_edge inlet_rim,outlet_rim`. Each original curve segment remains on the output boundary as a geometrically identical chain split at the dual edge midpoint.
 
+Use `--conserve_edge ALL` to retain every populated physical curve group
+in a Gmsh file, or every group on the one-dimensional edge level of a MED
+mesh:
+
+```bash
+PDMT --dimension 3 \
+  --mesh tetrahedra.med \
+  --med_mesh_name TetrahedralMesh \
+  --conserve_edge ALL \
+  --out_mesh all_curves_conserved.vtu
+```
+
 The 3D loader accepts tetrahedral `.mesh`, `.msh`, `.vtk`, and—when PDMT is built with MED support—`.med` files. Select a non-default MED input mesh with `--med_mesh_name`. MED output uses native `NORM_POLYHED` cells and stores exterior polygonal faces at level `-1`, including boundary family labels.
 For example:
 
@@ -280,7 +292,8 @@ PDMT --dimension 3S --mesh surface.med \
   --med_mesh_name TriangularMesh --out_mesh surface_dual.med
 ```
 
-Named edge groups selected with `--conserve_edge` still require an ASCII Gmsh 2.x input, as for the volumetric 3D mode.
+For Gmsh inputs, named edge groups require an ASCII Gmsh 2.x file. For MED
+inputs, PDMT reads the groups from the one-dimensional edge level.
 
 The Gmsh file must contain type-2 triangle elements; exporting only the physical curves is not a surface mesh. From a `.geo` file, an ASCII 2.x surface export can be generated with:
 

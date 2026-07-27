@@ -37,4 +37,23 @@ if (surfaceCount != 4) exit(404);
 PdmtPolyMeshWrite("closed_surface_poly.med",
     nodes=surfaceNodes, cells=surfaceCells, labels=surfaceLabels);
 
+// Generate a grouped MED surface from a tracked Gmsh fixture, then verify that
+// ALL enumerates its one-dimensional MED groups. This avoids binary fixtures.
+meshS GroupedSurfaceInput = gmshloadS("folded_surface_edge.msh3d");
+string groupedSurfaceFile = "grouped_surface_input.med";
+savemedmesh(GroupedSurfaceInput, groupedSurfaceFile);
+meshS GroupedSurface = PdmtLoadMedMeshS(
+    groupedSurfaceFile, meshname="TriangularMesh");
+real[int,int] surfaceAllNodes(0,0);
+int[int][int] surfaceAllCells;
+int[int] surfaceAllGroupLabels;
+
+int surfaceAllCount = PdmtBuildDual3S(GroupedSurface,
+    nodes=surfaceAllNodes, cells=surfaceAllCells,
+    labels=surfaceAllGroupLabels, featureAngle=180.0,
+    meshFile=groupedSurfaceFile, medMeshName="TriangularMesh",
+    conserveEdge="ALL", mode="smooth_dual");
+if (surfaceAllCount <= 0 || surfaceAllCells.n != surfaceAllCount ||
+    surfaceAllGroupLabels.n != surfaceAllCells.n) exit(405);
+
 cout << "PDMT 3D/3S MED I/O unit test passed" << endl;

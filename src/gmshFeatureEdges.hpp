@@ -50,6 +50,11 @@ inline std::set<std::string> splitPhysicalNames(const std::string &csv) {
   return names;
 }
 
+inline bool allPhysicalEdgeGroupsRequested(
+    const std::set<std::string> &requested) {
+  return requested.find("ALL") != requested.end();
+}
+
 inline bool isGmshLineType(long elementType) {
   // Linear and higher-order line element identifiers used by Gmsh 2.x.
   return elementType == 1 || elementType == 8 || elementType == 26 ||
@@ -161,13 +166,29 @@ inline std::set<EdgeKey> readGmshFeatureEdges(
 
   std::set<long> requestedTags;
   std::set<std::string> foundNames;
-  for (std::map<long, std::string>::const_iterator group = lineGroupNames.begin();
-       group != lineGroupNames.end(); ++group)
-    if (requested.find(group->second) != requested.end()) {
-      requestedTags.insert(group->first);
-      foundNames.insert(group->second);
-    }
-  if (foundNames.size() != requested.size()) {
+  if (allPhysicalEdgeGroupsRequested(requested)) {
+    std::set<long> populatedLineTags;
+    for (std::vector<GmshLine>::const_iterator line = lines.begin();
+         line != lines.end(); ++line)
+      populatedLineTags.insert(line->physicalTag);
+    for (std::map<long, std::string>::const_iterator group = lineGroupNames.begin();
+         group != lineGroupNames.end(); ++group)
+      if (populatedLineTags.find(group->first) != populatedLineTags.end()) {
+        requestedTags.insert(group->first);
+        foundNames.insert(group->second);
+      }
+    if (requestedTags.empty())
+      ExecError("PdmtBuildDual3D: Gmsh file contains no populated physical edge groups");
+  } else {
+    for (std::map<long, std::string>::const_iterator group = lineGroupNames.begin();
+         group != lineGroupNames.end(); ++group)
+      if (requested.find(group->second) != requested.end()) {
+        requestedTags.insert(group->first);
+        foundNames.insert(group->second);
+      }
+  }
+  if (!allPhysicalEdgeGroupsRequested(requested) &&
+      foundNames.size() != requested.size()) {
     std::ostringstream message;
     message << "PdmtBuildDual3D: unknown physical edge group(s):";
     for (std::set<std::string>::const_iterator name = requested.begin();

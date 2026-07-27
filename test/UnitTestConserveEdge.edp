@@ -4,9 +4,11 @@ load "gmsh"
 string inputMesh = "physical_edge.msh3d";
 mesh3 Th = gmshload3(inputMesh);
 
-real[int,int] smoothNodes(0,0), conservedNodes(0,0);
+real[int,int] smoothNodes(0,0), conservedNodes(0,0), allNodes(0,0);
 int[int][int] smoothFaces, smoothCells, conservedFaces, conservedCells;
+int[int][int] allFaces, allCells;
 int[int] smoothLabels, smoothFaceLabels, conservedLabels, conservedFaceLabels;
+int[int] allLabels, allFaceLabels;
 
 int smoothCellCount = PdmtBuildDual3D(Th,
     nodes=smoothNodes, faces=smoothFaces, cells=smoothCells,
@@ -19,7 +21,14 @@ int conservedCellCount = PdmtBuildDual3D(Th,
     featureAngle=45.0, meshFile=inputMesh, conserveEdge="bla",
     mode="smooth_dual");
 
-if (smoothCellCount != Th.nv || conservedCellCount != Th.nv) exit(201);
+int allCellCount = PdmtBuildDual3D(Th,
+    nodes=allNodes, faces=allFaces, cells=allCells,
+    labels=allLabels, faceLabels=allFaceLabels,
+    featureAngle=45.0, meshFile=inputMesh, conserveEdge="ALL",
+    mode="smooth_dual");
+
+if (smoothCellCount != Th.nv || conservedCellCount != Th.nv ||
+    allCellCount != Th.nv) exit(201);
 // Physical curve "bla" is a diagonal across the planar z=0 face. Its
 // midpoint must be retained even though the angle criterion removes the
 // coplanar edge.
@@ -53,5 +62,16 @@ for (int face = 0; face < conservedFaces.n; ++face)
 if (!firstHalf || !secondHalf) exit(205);
 if (conservedNodes.n <= smoothNodes.n) exit(204);
 if (conservedFaces.n <= smoothFaces.n) exit(203);
+
+// ALL must additionally retain physical curve "bar", the coplanar diagonal
+// from (0,0,1) to (1,1,1), without naming either group explicitly.
+int allTopMidpoint = -1;
+for (int node = 0; node < allNodes.n; ++node)
+  if (abs(allNodes(node,0)-0.5) < 1.e-10 &&
+      abs(allNodes(node,1)-0.5) < 1.e-10 &&
+      abs(allNodes(node,2)-1.0) < 1.e-10)
+    allTopMidpoint = node;
+if (allTopMidpoint < 0) exit(206);
+if (allNodes.n <= conservedNodes.n || allFaces.n <= conservedFaces.n) exit(207);
 
 cout << "PDMT named Gmsh edge conservation test passed" << endl;
