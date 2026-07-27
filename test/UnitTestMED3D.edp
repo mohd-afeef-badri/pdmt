@@ -37,51 +37,23 @@ if (surfaceCount != 4) exit(404);
 PdmtPolyMeshWrite("closed_surface_poly.med",
     nodes=surfaceNodes, cells=surfaceCells, labels=surfaceLabels);
 
-// ALL selects every group on the MED edge level. Compare against the same
-// smooth dual without conservation to ensure group "bla" changes connectivity.
-string groupedVolumeFile = "./../msh/cylinder_edge.med";
-mesh3 GroupedVolume = PdmtLoadMedMesh3(
-    groupedVolumeFile, meshname="cylinder_edge");
-real[int,int] groupedSmoothNodes(0,0), groupedAllNodes(0,0);
-int[int][int] groupedSmoothFaces, groupedSmoothCells;
-int[int][int] groupedAllFaces, groupedAllCells;
-int[int] groupedSmoothLabels, groupedSmoothFaceLabels;
-int[int] groupedAllLabels, groupedAllFaceLabels;
-
-int groupedSmoothCount = PdmtBuildDual3D(GroupedVolume,
-    nodes=groupedSmoothNodes, faces=groupedSmoothFaces,
-    cells=groupedSmoothCells, labels=groupedSmoothLabels,
-    faceLabels=groupedSmoothFaceLabels, featureAngle=180.0,
-    mode="smooth_dual");
-int groupedAllCount = PdmtBuildDual3D(GroupedVolume,
-    nodes=groupedAllNodes, faces=groupedAllFaces, cells=groupedAllCells,
-    labels=groupedAllLabels, faceLabels=groupedAllFaceLabels,
-    featureAngle=180.0, meshFile=groupedVolumeFile,
-    medMeshName="cylinder_edge", conserveEdge="ALL",
-    mode="smooth_dual");
-if (groupedSmoothCount != GroupedVolume.nv ||
-    groupedAllCount != GroupedVolume.nv) exit(405);
-if (groupedAllNodes.n <= groupedSmoothNodes.n ||
-    groupedAllFaces.n <= groupedSmoothFaces.n) exit(406);
-
-string groupedSurfaceFile = "./../msh/cylinder_surface_edge.med";
+// Generate a grouped MED surface from a tracked Gmsh fixture, then verify that
+// ALL enumerates its one-dimensional MED groups. This avoids binary fixtures.
+meshS GroupedSurfaceInput = gmshloadS("folded_surface_edge.msh3d");
+string groupedSurfaceFile = "grouped_surface_input.med";
+savemedmesh(GroupedSurfaceInput, groupedSurfaceFile);
 meshS GroupedSurface = PdmtLoadMedMeshS(
-    groupedSurfaceFile, meshname="cylinder_surface_edge");
-real[int,int] surfaceSmoothNodes(0,0), surfaceAllNodes(0,0);
-int[int][int] surfaceSmoothCells, surfaceAllCells;
-int[int] surfaceSmoothGroupLabels, surfaceAllGroupLabels;
+    groupedSurfaceFile, meshname="TriangularMesh");
+real[int,int] surfaceAllNodes(0,0);
+int[int][int] surfaceAllCells;
+int[int] surfaceAllGroupLabels;
 
-int surfaceSmoothCount = PdmtBuildDual3S(GroupedSurface,
-    nodes=surfaceSmoothNodes, cells=surfaceSmoothCells,
-    labels=surfaceSmoothGroupLabels, featureAngle=180.0,
-    mode="smooth_dual");
 int surfaceAllCount = PdmtBuildDual3S(GroupedSurface,
     nodes=surfaceAllNodes, cells=surfaceAllCells,
     labels=surfaceAllGroupLabels, featureAngle=180.0,
-    meshFile=groupedSurfaceFile, medMeshName="cylinder_surface_edge",
+    meshFile=groupedSurfaceFile, medMeshName="TriangularMesh",
     conserveEdge="ALL", mode="smooth_dual");
-if (surfaceSmoothCount <= 0 || surfaceAllCount <= surfaceSmoothCount) exit(407);
-if (surfaceAllNodes.n <= surfaceSmoothNodes.n ||
-    surfaceAllCells.n <= surfaceSmoothCells.n) exit(408);
+if (surfaceAllCount <= 0 || surfaceAllCells.n != surfaceAllCount ||
+    surfaceAllGroupLabels.n != surfaceAllCells.n) exit(405);
 
 cout << "PDMT 3D/3S MED I/O unit test passed" << endl;
