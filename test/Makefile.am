@@ -57,7 +57,7 @@ test-conserve-edge: UnitTestConserveEdge.edp physical_edge.msh3d
 test-3s: UnitTest3S.edp folded_surface_edge.msh3d closed_surface.msh3d
 	$(MED_TEST_ENV) $(FFMPI) -np 1 UnitTest3S.edp -v 0 -nw > UnitTest3S.log
 
-test-med-3d: UnitTestMED3D.edp single_tetra.mesh3d closed_surface.msh3d
+test-med-3d: UnitTestMED3D.edp single_tetra.mesh3d closed_surface.msh3d ../msh/cylinder_edge.med ../msh/cylinder_surface_edge.med
 if WITHMEDIO
 	$(MED_TEST_ENV) $(FFMPI) -np 1 UnitTestMED3D.edp -v 0 -nw > UnitTestMED3D.log
 endif

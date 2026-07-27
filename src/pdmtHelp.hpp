@@ -37,7 +37,7 @@ int PdmtHelp()
                          Also accepts : "square" or "circle"
   --dimension        : Input type: 2 (default), 3, or 3S surface
   --feature_angle    : 3D/3S feature angle in degrees (default: 45)
-  --conserve_edge    : Comma-separated Gmsh physical edge-group names
+  --conserve_edge    : Comma-separated Gmsh/MED edge-group names, or ALL
   --mode             : Dual construction: subdivided_dual or smooth_dual
                          defaults: smooth_dual for 2D/3D, subdivided_dual for 3S
   --out_mesh         : Provide name for saved mesh

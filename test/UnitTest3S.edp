@@ -5,8 +5,9 @@ string inputMesh = "folded_surface_edge.msh3d";
 meshS Th = gmshloadS(inputMesh);
 
 real[int,int] smoothNodes(0,0), angleNodes(0,0), conservedNodes(0,0);
-int[int][int] smoothCells, angleCells, conservedCells;
-int[int] smoothLabels, angleLabels, conservedLabels;
+real[int,int] allConservedNodes(0,0);
+int[int][int] smoothCells, angleCells, conservedCells, allConservedCells;
+int[int] smoothLabels, angleLabels, conservedLabels, allConservedLabels;
 
 int smoothCount = PdmtBuildDual3S(Th,
     nodes=smoothNodes, cells=smoothCells, labels=smoothLabels,
@@ -28,6 +29,14 @@ int conservedCount = PdmtBuildDual3S(Th,
     mode="smooth_dual");
 if (conservedCount != 6 || conservedCells.n != 6) exit(303);
 if (conservedLabels.n != conservedCells.n) exit(304);
+
+int allConservedCount = PdmtBuildDual3S(Th,
+    nodes=allConservedNodes, cells=allConservedCells,
+    labels=allConservedLabels, featureAngle=180.0,
+    meshFile=inputMesh, conserveEdge="ALL", mode="smooth_dual");
+if (allConservedCount != conservedCount ||
+    allConservedCells.n != conservedCells.n ||
+    allConservedNodes.n != conservedNodes.n) exit(310);
 
 int startNode = -1, midpointNode = -1, endNode = -1;
 for (int node = 0; node < conservedNodes.n; ++node) {
