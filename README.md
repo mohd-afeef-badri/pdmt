@@ -145,8 +145,8 @@ After installation is done you can simply launch the PDMT mesh conversion via a 
 - `--feature_angle`: preserve 3D boundary edges sharper than this angle (`45` degrees by default).
 - `--conserve_edge`: comma-separated Gmsh/MED edge-group names that must remain as feature-edge chains in 3D/3S output, or `ALL` to conserve every available edge group.
 - `--mode`: dual construction for every dimension, either `subdivided_dual` or `smooth_dual`. The defaults are `smooth_dual` for 2D/3D and `subdivided_dual` for 3S.
-- `--smooth_iterations`: number of boundary-aware dual-area (2D) or dual-volume (3D) balancing passes (`0` by default).
-- `--smooth_relaxation`: strength of each 2D/3D balancing pass, in `(0,1]` (`0.3` by default).
+- `--smooth_iterations`: number of boundary-aware dual-area (2D/3S) or dual-volume (3D) balancing passes (`0` by default).
+- `--smooth_relaxation`: strength of each 2D/3D/3S balancing pass, in `(0,1]` (`0.3` by default).
 
 ![image](https://github.com/mohd-afeef-badri/pdmt/assets/52162083/8ae5798d-5a4f-474d-ae39-c7207085f7bd)
 ![image](https://github.com/mohd-afeef-badri/pdmt/assets/52162083/03f0e8ae-75dd-4823-870b-4c65fab363fe)
@@ -317,6 +317,19 @@ PDMT --dimension 3S \
 ```
 
 Protected geometry has priority in both modes. Boundary edges, edges selected by `--feature_angle`, region interfaces, and `--conserve_edge` curves retain their primal vertices and edge midpoints so those feature segments remain in the output connectivity.
+
+Both 3S modes also support boundary-aware surface-cell area regularization:
+
+```bash
+PDMT --dimension 3S \
+  --mesh ./surface.msh \
+  --mode smooth_dual \
+  --smooth_iterations 3 \
+  --smooth_relaxation 0.3 \
+  --out_mesh regularized-surface.vtu
+```
+
+Each pass measures the areas of the actual output polygons, including the straight connections used by `smooth_dual`, and adjusts triangle points and unprotected edge points inside their original input simplices. Original surface vertices and all boundary, feature, region-interface, and conserved edge midpoints remain fixed. When a feature edge splits the fan of one input vertex, each resulting output polygon receives its own balancing weight; this prevents a small feature-side cell from being hidden by the total area around the seed. With verbose output, PDMT reports the surface-cell area coefficient of variation and mean boundary/interior area ratio before and after regularization.
 
 The 3S loader accepts `.mesh`, `.msh`, `.vtk`, and—when MED support is enabled—`.med` triangular surfaces. It writes `.vtk`, `.vtu`, or native MED polygon cells. Use `--med_mesh_name` for the surface mesh name inside an input MED file:
 
