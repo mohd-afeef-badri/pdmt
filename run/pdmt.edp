@@ -164,6 +164,8 @@ func int run3S (){
   real featureAngle   = getARGV("--feature_angle", 45.0);
   string conserveEdge = getARGV("--conserve_edge", "");
   string dualMode     = getARGV("--mode", "subdivided_dual");
+  int smoothIterations = getARGV("--smooth_iterations", 0);
+  real smoothRelaxation = getARGV("--smooth_relaxation", 0.3);
 
   meshS ThS = loadTheMeshS(ThName, MedMeshName);
 
@@ -179,7 +181,9 @@ func int run3S (){
       meshFile = ThName,
       conserveEdge = conserveEdge,
       mode = dualMode,
-      medMeshName = MedMeshName);
+      medMeshName = MedMeshName,
+      smoothIterations = smoothIterations,
+      smoothRelaxation = smoothRelaxation);
 
   if (numberOfPolygons <= 0) {
     cout << "PDMT failed to build a 3S dual mesh" << endl;

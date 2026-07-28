@@ -86,13 +86,216 @@ inline std::vector<long> mergedWedgeBoundary(
   return loop;
 }
 
+inline Point weightedSurfaceEdgeCenter(
+    const EdgeKey &edge,
+    const SurfaceEdge &edgeData,
+    const std::vector<Point> &points,
+    long firstCell,
+    long secondCell,
+    const std::vector<double> &cellPreference) {
+  if (edgeData.feature)
+    return scale(add(points[edge[0]], points[edge[1]]), 0.5);
+  const double firstWeight = 1.0 / cellPreference[firstCell];
+  const double secondWeight = 1.0 / cellPreference[secondCell];
+  return scale(add(scale(points[edge[0]], firstWeight),
+                   scale(points[edge[1]], secondWeight)),
+               1.0 / (firstWeight + secondWeight));
+}
+
+inline Point weightedSurfaceTriangleCenter(
+    const std::array<long, 3> &triangle,
+    const std::array<long, 3> &cornerCells,
+    const std::vector<Point> &points,
+    const std::vector<double> &cellPreference) {
+  Point center = {0.0, 0.0, 0.0};
+  double weightSum = 0.0;
+  for (int local = 0; local < 3; ++local) {
+    const double weight = 1.0 / cellPreference[cornerCells[local]];
+    center = add(center, scale(points[triangle[local]], weight));
+    weightSum += weight;
+  }
+  return scale(center, 1.0 / weightSum);
+}
+
+inline long cornerCell(
+    long triangle,
+    long vertex,
+    const std::vector<std::array<long, 3> > &triangles,
+    const std::vector<std::array<long, 3> > &triangleCornerCells) {
+  for (int local = 0; local < 3; ++local)
+    if (triangles[triangle][local] == vertex)
+      return triangleCornerCells[triangle][local];
+  ExecError("PdmtBuildDual3S: an edge endpoint is absent from its triangle");
+  return -1;
+}
+
+inline std::vector<double> dualSurfaceAreas(
+    const std::vector<std::vector<long> > &polygons,
+    const std::vector<Point> &points) {
+  std::vector<double> areas(polygons.size(), 0.0);
+  for (long polygon = 0;
+       polygon < static_cast<long>(polygons.size()); ++polygon)
+    areas[polygon] =
+        0.5 * norm(Pdmt3D::polygonAreaVector(polygons[polygon], points));
+  return areas;
+}
+
+inline double boundaryInteriorAreaRatio(
+    const std::vector<double> &areas,
+    const std::vector<char> &boundaryVertex) {
+  double boundarySum = 0.0;
+  double interiorSum = 0.0;
+  long boundaryCount = 0;
+  long interiorCount = 0;
+  for (long vertex = 0; vertex < static_cast<long>(areas.size()); ++vertex) {
+    if (boundaryVertex[vertex]) {
+      boundarySum += areas[vertex];
+      ++boundaryCount;
+    } else {
+      interiorSum += areas[vertex];
+      ++interiorCount;
+    }
+  }
+  if (!boundaryCount || !interiorCount || interiorSum <= 0.0)
+    return 0.0;
+  return (boundarySum / boundaryCount) / (interiorSum / interiorCount);
+}
+
+inline long regularizeDualSurfaceAreas(
+    const std::vector<std::array<long, 3> > &triangles,
+    const std::vector<long> &triangleCentres,
+    const std::vector<std::array<long, 3> > &triangleCornerCells,
+    std::map<EdgeKey, SurfaceEdge> &edges,
+    const std::vector<std::vector<long> > &polygons,
+    std::vector<Point> &points,
+    long requestedIterations,
+    double relaxation,
+    std::vector<double> &cellPreference,
+    double &initialCv,
+    double &finalCv,
+    double &initialBoundaryRatio,
+    double &finalBoundaryRatio) {
+  const long cellCount = static_cast<long>(polygons.size());
+  cellPreference.assign(cellCount, 1.0);
+  initialCv = finalCv = 0.0;
+  initialBoundaryRatio = finalBoundaryRatio = 0.0;
+  if (requestedIterations <= 0)
+    return 0;
+
+  std::vector<std::set<long> > neighbourSets(cellCount);
+  std::vector<char> boundaryCell(cellCount, 0);
+  for (long triangle = 0;
+       triangle < static_cast<long>(triangles.size()); ++triangle)
+    for (int first = 0; first < 3; ++first)
+      for (int second = first + 1; second < 3; ++second) {
+        const long firstCell = triangleCornerCells[triangle][first];
+        const long secondCell = triangleCornerCells[triangle][second];
+        neighbourSets[firstCell].insert(secondCell);
+        neighbourSets[secondCell].insert(firstCell);
+      }
+  for (std::map<EdgeKey, SurfaceEdge>::const_iterator edge = edges.begin();
+       edge != edges.end(); ++edge) {
+    if (edge->second.triangles.size() == 1) {
+      const long triangle = edge->second.triangles[0];
+      boundaryCell[cornerCell(
+          triangle, edge->first[0], triangles, triangleCornerCells)] = 1;
+      boundaryCell[cornerCell(
+          triangle, edge->first[1], triangles, triangleCornerCells)] = 1;
+    }
+  }
+
+  std::vector<double> areas = dualSurfaceAreas(polygons, points);
+  initialCv = Pdmt3D::coefficientOfVariation(areas);
+  initialBoundaryRatio =
+      boundaryInteriorAreaRatio(areas, boundaryCell);
+
+  long completedIterations = 0;
+  for (long iteration = 0; iteration < requestedIterations; ++iteration) {
+    std::vector<double> updatedPreference(cellPreference);
+    double maximumLogUpdate = 0.0;
+    for (long cell = 0; cell < cellCount; ++cell) {
+      if (areas[cell] <= 0.0 || neighbourSets[cell].empty())
+        continue;
+
+      double localTarget = 0.0;
+      long targetCount = 0;
+      for (std::set<long>::const_iterator neighbour =
+               neighbourSets[cell].begin();
+           neighbour != neighbourSets[cell].end(); ++neighbour) {
+        if (!boundaryCell[*neighbour]) {
+          localTarget += areas[*neighbour];
+          ++targetCount;
+        }
+      }
+      if (!boundaryCell[cell]) {
+        localTarget += areas[cell];
+        ++targetCount;
+      }
+      if (!targetCount) {
+        localTarget = areas[cell];
+        targetCount = 1;
+        for (std::set<long>::const_iterator neighbour =
+                 neighbourSets[cell].begin();
+             neighbour != neighbourSets[cell].end(); ++neighbour) {
+          localTarget += areas[*neighbour];
+          ++targetCount;
+        }
+      }
+      localTarget /= targetCount;
+      const double logUpdate =
+          relaxation * std::log(localTarget / areas[cell]);
+      maximumLogUpdate = std::max(maximumLogUpdate, std::abs(logUpdate));
+      updatedPreference[cell] =
+          cellPreference[cell] * std::exp(logUpdate);
+    }
+
+    double meanLogPreference = 0.0;
+    for (long cell = 0; cell < cellCount; ++cell)
+      meanLogPreference += std::log(updatedPreference[cell]);
+    meanLogPreference /= cellCount;
+    for (long cell = 0; cell < cellCount; ++cell)
+      cellPreference[cell] = std::max(
+          0.05, std::min(20.0,
+              std::exp(std::log(updatedPreference[cell]) -
+                       meanLogPreference)));
+
+    for (long triangle = 0;
+         triangle < static_cast<long>(triangles.size()); ++triangle)
+      points[triangleCentres[triangle]] = weightedSurfaceTriangleCenter(
+          triangles[triangle], triangleCornerCells[triangle],
+          points, cellPreference);
+    for (std::map<EdgeKey, SurfaceEdge>::iterator edge = edges.begin();
+         edge != edges.end(); ++edge)
+      if (!edge->second.feature) {
+        const long triangle = edge->second.triangles[0];
+        const long firstCell = cornerCell(
+            triangle, edge->first[0], triangles, triangleCornerCells);
+        const long secondCell = cornerCell(
+            triangle, edge->first[1], triangles, triangleCornerCells);
+        points[edge->second.midpoint] = weightedSurfaceEdgeCenter(
+            edge->first, edge->second, points,
+            firstCell, secondCell, cellPreference);
+      }
+
+    areas = dualSurfaceAreas(polygons, points);
+    ++completedIterations;
+    if (maximumLogUpdate <= 1.e-10)
+      break;
+  }
+
+  finalCv = Pdmt3D::coefficientOfVariation(areas);
+  finalBoundaryRatio =
+      boundaryInteriorAreaRatio(areas, boundaryCell);
+  return completedIterations;
+}
+
 } // namespace Pdmt3S
 
 class pdmtBuildDual3S_Op : public E_F0mps {
 public:
   Expression mesh;
 
-  static const int n_name_param = 8;
+  static const int n_name_param = 10;
   static basicAC_F0::name_and_type name_param[];
   Expression nargs[n_name_param];
 
@@ -112,7 +315,9 @@ basicAC_F0::name_and_type pdmtBuildDual3S_Op::name_param[] = {
     {"meshFile", &typeid(std::string *)},
     {"conserveEdge", &typeid(std::string *)},
     {"mode", &typeid(std::string *)},
-    {"medMeshName", &typeid(std::string *)}};
+    {"medMeshName", &typeid(std::string *)},
+    {"smoothIterations", &typeid(long)},
+    {"smoothRelaxation", &typeid(double)}};
 
 class pdmtBuildDual3S : public OneOperator {
 public:
@@ -141,6 +346,10 @@ AnyType pdmtBuildDual3S_Op::operator()(Stack stack) const {
   std::string conserveEdge;
   std::string mode = "subdivided_dual";
   std::string medMeshName;
+  const long smoothIterations =
+      nargs[8] ? GetAny<long>((*nargs[8])(stack)) : 0;
+  const double smoothRelaxation =
+      nargs[9] ? GetAny<double>((*nargs[9])(stack)) : 0.3;
   if (nargs[4])
     meshFile = *GetAny<std::string *>((*nargs[4])(stack));
   if (nargs[5])
@@ -157,6 +366,10 @@ AnyType pdmtBuildDual3S_Op::operator()(Stack stack) const {
     ExecError("PdmtBuildDual3S: featureAngle must be between 0 and 180 degrees");
   if (mode != "subdivided_dual" && mode != "smooth_dual")
     ExecError("PdmtBuildDual3S: mode must be subdivided_dual or smooth_dual");
+  if (smoothIterations < 0)
+    ExecError("PdmtBuildDual3S: smoothIterations must be non-negative");
+  if (smoothRelaxation <= 0.0 || smoothRelaxation > 1.0)
+    ExecError("PdmtBuildDual3S: smoothRelaxation must be in (0,1]");
   const bool smoothDual = mode == "smooth_dual";
 
   std::vector<Point> pointList;
@@ -257,6 +470,8 @@ AnyType pdmtBuildDual3S_Op::operator()(Stack stack) const {
 
   std::vector<std::vector<long> > polygonList;
   std::vector<long> polygonLabels;
+  std::vector<std::array<long, 3> > triangleCornerCells(
+      Th.nt, std::array<long, 3>{{-1, -1, -1}});
   for (long vertex = 0; vertex < Th.nv; ++vertex) {
     std::set<long> remaining(incidentTriangles[vertex].begin(),
                              incidentTriangles[vertex].end());
@@ -297,10 +512,38 @@ AnyType pdmtBuildDual3S_Op::operator()(Stack stack) const {
         desiredNormal = add(desiredNormal, triangleNormals[*triangle]);
       if (dot(polygonAreaVector(polygon, pointList), desiredNormal) < 0.0)
         std::reverse(polygon.begin(), polygon.end());
+      const long polygonId = static_cast<long>(polygonList.size());
+      for (std::vector<long>::const_iterator triangle = component.begin();
+           triangle != component.end(); ++triangle) {
+        bool assigned = false;
+        for (int local = 0; local < 3; ++local)
+          if (triangles[*triangle][local] == vertex) {
+            triangleCornerCells[*triangle][local] = polygonId;
+            assigned = true;
+          }
+        if (!assigned)
+          ExecError("PdmtBuildDual3S: cannot map a triangle corner to its polygon");
+      }
       polygonList.push_back(polygon);
       polygonLabels.push_back(Th[component[0]].lab);
     }
   }
+  for (long triangle = 0; triangle < Th.nt; ++triangle)
+    for (int local = 0; local < 3; ++local)
+      if (triangleCornerCells[triangle][local] < 0)
+        ExecError("PdmtBuildDual3S: an input triangle corner has no dual polygon");
+
+  std::vector<double> cellPreference;
+  double initialAreaCv = 0.0;
+  double finalAreaCv = 0.0;
+  double initialBoundaryRatio = 0.0;
+  double finalBoundaryRatio = 0.0;
+  const long completedSmoothIterations = regularizeDualSurfaceAreas(
+      triangles, triangleCentres, triangleCornerCells, surfaceEdges,
+      polygonList, pointList,
+      smoothIterations, smoothRelaxation, cellPreference,
+      initialAreaCv, finalAreaCv, initialBoundaryRatio,
+      finalBoundaryRatio);
 
   std::vector<long> oldToNew(pointList.size(), -1);
   for (std::vector<std::vector<long> >::const_iterator polygon = polygonList.begin();
@@ -339,6 +582,17 @@ AnyType pdmtBuildDual3S_Op::operator()(Stack stack) const {
   }
 
   if (verbosity) {
+    if (smoothIterations > 0)
+      std::cout << "PDMT 3S regularization: completed "
+                << completedSmoothIterations << "/" << smoothIterations
+                << " dual-area iterations at relaxation "
+                << smoothRelaxation
+                << "; cell-area CV " << initialAreaCv
+                << " -> " << finalAreaCv
+                << "; mean boundary/interior area ratio "
+                << initialBoundaryRatio << " -> " << finalBoundaryRatio
+                << " (surface vertices and protected edges unchanged)"
+                << std::endl;
     std::cout << "PDMT 3S " << mode << ": " << Th.nt << " surface triangles -> "
               << polygonList.size() << " polygons and " << compactPoints.size()
               << " nodes" << std::endl;
