@@ -10,7 +10,7 @@ MEDIO_VERSION=1.1
 MEDCOUPLING_DOWNLOAD =	wget -c \
   			--header="User-Agent: Mozilla/5.0 (X11; Linux x86_64)" \
   			--header="Referer: https://www.salome-platform.org/" \
-  			https://files.salome-platform.org/Salome/Salome$(MEDCOUPLING_VERSION)/MEDCOUPLING-$(MEDCOUPLING_VERSION).tar.gz \
+  			https://files.salome-platform.org/Salome/Salome$(MEDCOUPLING_VERSION)/MEDCOUPLING-$(MEDCOUPLING_VERSION)-el8-x86_64.tar.gz \
   			-O MEDCOUPLING-$(MEDCOUPLING_VERSION).tar.gz
 
 MEDIO_DOWNLOAD	=	wget -c https://github.com/mohd-afeef-badri/medio/archive/refs/tags/$(MEDIO_VERSION).tar.gz \
