@@ -43,8 +43,12 @@ UnitTestCovexHull: UnitTestCovexHull.edp
 test-2d-modes: check_2d_dual_vtu.py
 	./../run/PDMT --dimension 2 --mesh square --square_mesh_size 4 --mode smooth_dual --out_mesh test_2d_smooth.vtu > test_2d_smooth.log
 	python3 ./check_2d_dual_vtu.py test_2d_smooth_0000.vtu --expect-polygons 15 --expect-boundary 24
+	./../run/PDMT --dimension 2 --mesh square --square_mesh_size 4 --mode smooth_dual --smooth_iterations 3 --smooth_relaxation 0.3 --out_mesh test_2d_smooth_regularized.vtu > test_2d_smooth_regularized.log
+	python3 ./check_2d_dual_vtu.py test_2d_smooth_regularized_0000.vtu --expect-polygons 15 --expect-boundary 24 --regularized-from test_2d_smooth_0000.vtu
 	./../run/PDMT --dimension 2 --mesh square --square_mesh_size 4 --mode subdivided_dual --out_mesh test_2d_subdivided_square.vtu > test_2d_subdivided_square.log
 	python3 ./check_2d_dual_vtu.py test_2d_subdivided_square_0000.vtu --expect-polygons 15 --expect-boundary 24 --more-connectivity-than test_2d_smooth_0000.vtu
+	./../run/PDMT --dimension 2 --mesh square --square_mesh_size 4 --mode subdivided_dual --smooth_iterations 3 --smooth_relaxation 0.3 --out_mesh test_2d_subdivided_regularized.vtu > test_2d_subdivided_regularized.log
+	python3 ./check_2d_dual_vtu.py test_2d_subdivided_regularized_0000.vtu --expect-polygons 15 --expect-boundary 24 --regularized-from test_2d_subdivided_square_0000.vtu
 	./../run/PDMT --dimension 2 --mesh circle --circle_mesh_size 24 --mode subdivided_dual --out_mesh test_2d_subdivided_circle.vtu > test_2d_subdivided_circle.log
 	python3 ./check_2d_dual_vtu.py test_2d_subdivided_circle_0000.vtu
 
