@@ -116,3 +116,61 @@ for (int face = 0; face < subdividedFaces.n; ++face)
 if (subdividedConnectivity <= smoothConnectivity) exit(118);
 
 cout << "PDMT 3D dual-mode test passed" << endl;
+
+// Boundary-aware regularization moves only dual subdivision nodes. The eight
+// primal corners stay fixed while neighbouring dual-cell volumes are balanced.
+mesh3 Offcenter = readmesh3("offcenter_cube.mesh3d");
+real[int,int] unsmoothedRegularizationNodes(0,0), regularizedNodes(0,0);
+int[int][int] unsmoothedRegularizationFaces, unsmoothedRegularizationCells;
+int[int][int] regularizedFaces, regularizedCells;
+int[int] unsmoothedRegularizationLabels, unsmoothedRegularizationFaceLabels;
+int[int] regularizedLabels, regularizedFaceLabels;
+
+int unsmoothedRegularizationCount = PdmtBuildDual3D(Offcenter,
+    nodes=unsmoothedRegularizationNodes,
+    faces=unsmoothedRegularizationFaces,
+    cells=unsmoothedRegularizationCells,
+    labels=unsmoothedRegularizationLabels,
+    faceLabels=unsmoothedRegularizationFaceLabels,
+    mode="subdivided_dual");
+int regularizedCount = PdmtBuildDual3D(Offcenter,
+    nodes=regularizedNodes, faces=regularizedFaces, cells=regularizedCells,
+    labels=regularizedLabels, faceLabels=regularizedFaceLabels,
+    mode="subdivided_dual", smoothIterations=3, smoothRelaxation=0.5);
+
+if (unsmoothedRegularizationCount != Offcenter.nv ||
+    regularizedCount != Offcenter.nv) exit(119);
+if (regularizedNodes.n != unsmoothedRegularizationNodes.n ||
+    regularizedFaces.n != unsmoothedRegularizationFaces.n ||
+    regularizedCells.n != unsmoothedRegularizationCells.n) exit(120);
+
+real maximumRegularizationMotion = 0.0;
+for (int node = 0; node < regularizedNodes.n; ++node)
+  for (int component = 0; component < 3; ++component)
+    maximumRegularizationMotion = max(maximumRegularizationMotion,
+        abs(regularizedNodes(node,component) -
+            unsmoothedRegularizationNodes(node,component)));
+if (maximumRegularizationMotion < 1.e-8) exit(121);
+
+int fixedCorners = 0;
+for (int node = 0; node < regularizedNodes.n; ++node) {
+  real xNode = regularizedNodes(node,0);
+  real yNode = regularizedNodes(node,1);
+  real zNode = regularizedNodes(node,2);
+  if ((abs(xNode) < 1.e-12 || abs(xNode-1.0) < 1.e-12) &&
+      (abs(yNode) < 1.e-12 || abs(yNode-1.0) < 1.e-12) &&
+      (abs(zNode) < 1.e-12 || abs(zNode-1.0) < 1.e-12))
+    fixedCorners++;
+}
+if (fixedCorners != 8) exit(122);
+
+PdmtPolyMeshWrite("offcenter_unsmoothed.vtu",
+    nodes=unsmoothedRegularizationNodes, faces=unsmoothedRegularizationFaces,
+    cells=unsmoothedRegularizationCells,
+    labels=unsmoothedRegularizationLabels,
+    faceLabels=unsmoothedRegularizationFaceLabels);
+PdmtPolyMeshWrite("offcenter_regularized.vtu",
+    nodes=regularizedNodes, faces=regularizedFaces, cells=regularizedCells,
+    labels=regularizedLabels, faceLabels=regularizedFaceLabels);
+
+cout << "PDMT 3D dual-volume regularization test passed" << endl;
