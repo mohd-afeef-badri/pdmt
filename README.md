@@ -145,6 +145,8 @@ After installation is done you can simply launch the PDMT mesh conversion via a 
 - `--feature_angle`: preserve 3D boundary edges sharper than this angle (`45` degrees by default).
 - `--conserve_edge`: comma-separated Gmsh/MED edge-group names that must remain as feature-edge chains in 3D/3S output, or `ALL` to conserve every available edge group.
 - `--mode`: dual construction for every dimension, either `subdivided_dual` or `smooth_dual`. The defaults are `smooth_dual` for 2D/3D and `subdivided_dual` for 3S.
+- `--smooth_iterations`: number of boundary-aware dual-area (2D/3S) or dual-volume (3D) balancing passes (`0` by default).
+- `--smooth_relaxation`: strength of each 2D/3D/3S balancing pass, in `(0,1]` (`0.3` by default).
 
 ![image](https://github.com/mohd-afeef-badri/pdmt/assets/52162083/8ae5798d-5a4f-474d-ae39-c7207085f7bd)
 ![image](https://github.com/mohd-afeef-badri/pdmt/assets/52162083/03f0e8ae-75dd-4823-870b-4c65fab363fe)
@@ -182,6 +184,20 @@ PDMT --dimension 2 \
 
 The two modes support the same 2D input and output formats. Use `subdivided_dual` when the dual should explicitly follow the barycentric subdivision, and `smooth_dual` when straighter, less subdivided polygon boundaries are preferred.
 
+Both modes support boundary-aware polygon-area regularization:
+
+```bash
+PDMT --dimension 2 \
+  --mesh square \
+  --square_mesh_size 20 \
+  --mode smooth_dual \
+  --smooth_iterations 3 \
+  --smooth_relaxation 0.3 \
+  --out_mesh square_regularized.vtu
+```
+
+Each pass measures the actual output polygon areas. Boundary polygons are compared directly with adjacent interior polygons, then weighted triangle centres and edge points are moved to redistribute area. Original boundary vertices remain fixed, and every weighted boundary point remains on its original primal edge. A relaxation of `0.3` applies thirty percent of the multiplicative area correction in each pass. With verbose output, PDMT reports the polygon-area coefficient of variation and mean boundary/interior area ratio before and after regularization.
+
 ### 3D Polyhedral meshes
 
 PDMT can convert a  tetrahedral mesh into a conforming polyhedral mesh. Every input vertex is treated as a seed/generator for polytopal mesh hence produces one polyhedron. Triangle fans around each primal edge are merged into a single polygonal face, matching the normal dual topology instead of exposing the barycentric sub-tetrahedra. Boundary labels and sharp feature edges are retained.
@@ -206,6 +222,22 @@ PDMT --dimension 3 \
 ```
 
 In either mode, domain-boundary anchors, sharp features, region interfaces, and curves selected by `--conserve_edge` take priority and remain in the polyhedron connectivity. This keeps every polyhedron closed and conforming.
+
+#### Boundary-aware 3D regularization
+
+Either 3D dual representation can be regularized by redistributing volume between neighbouring dual cells. Each pass measures the current polyhedral volumes. A boundary cell is compared directly with adjacent interior cells, rather than mostly with other truncated boundary cells. PDMT then moves the shared dual points inside their original primal edges, faces, and tetrahedra. The tetrahedral seed vertices themselves do not move:
+
+```bash
+PDMT --dimension 3 \
+  --mesh tetrahedra.med \
+  --med_mesh_name TetrahedralMesh \
+  --mode smooth_dual \
+  --smooth_iterations 3 \
+  --smooth_relaxation 0.3 \
+  --out_mesh regularized_polyhedra.vtu
+```
+
+Two to five iterations with a relaxation between `0.2` and `0.4` are a reasonable starting point. The operation does not modify the input file, move the primal boundary, or remove explicitly conserved geometry. Weighted dual edge points remain on their original primal edge, weighted face points remain inside their original face, and weighted tetrahedron points remain inside their original tetrahedron. With verbose output, PDMT reports both the cell-volume coefficient of variation and the mean boundary/interior cell-volume ratio before and after regularization.
 
 Named physical curve groups in an ASCII Gmsh 2.x input can be protected independently of the angle criterion. For example, to retain the group `bla` from `cylinder_edge.msh`:
 
@@ -252,7 +284,8 @@ PdmtBuildDual3D(Th3,
   labels=cellLabels, faceLabels=faceLabels,
   featureAngle=45.0,
   meshFile="tetrahedra.msh", conserveEdge="ridge,corner",
-  mode="smooth_dual");
+  mode="smooth_dual",
+  smoothIterations=3, smoothRelaxation=0.3);
 
 PdmtPolyMeshWrite("polyhedra.vtu",
   nodes=nodes, cells=cells, faces=faces,
@@ -284,6 +317,19 @@ PDMT --dimension 3S \
 ```
 
 Protected geometry has priority in both modes. Boundary edges, edges selected by `--feature_angle`, region interfaces, and `--conserve_edge` curves retain their primal vertices and edge midpoints so those feature segments remain in the output connectivity.
+
+Both 3S modes also support boundary-aware surface-cell area regularization:
+
+```bash
+PDMT --dimension 3S \
+  --mesh ./surface.msh \
+  --mode smooth_dual \
+  --smooth_iterations 3 \
+  --smooth_relaxation 0.3 \
+  --out_mesh regularized-surface.vtu
+```
+
+Each pass measures the areas of the actual output polygons, including the straight connections used by `smooth_dual`, and adjusts triangle points and unprotected edge points inside their original input simplices. Original surface vertices and all boundary, feature, region-interface, and conserved edge midpoints remain fixed. When a feature edge splits the fan of one input vertex, each resulting output polygon receives its own balancing weight; this prevents a small feature-side cell from being hidden by the total area around the seed. With verbose output, PDMT reports the surface-cell area coefficient of variation and mean boundary/interior area ratio before and after regularization.
 
 The 3S loader accepts `.mesh`, `.msh`, `.vtk`, and—when MED support is enabled—`.med` triangular surfaces. It writes `.vtk`, `.vtu`, or native MED polygon cells. Use `--med_mesh_name` for the surface mesh name inside an input MED file:
 

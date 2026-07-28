@@ -108,6 +108,206 @@ inline double norm(const Point &a) {
   return std::sqrt(dot(a, a));
 }
 
+inline double signedTetVolume6(const Point &a, const Point &b,
+                               const Point &c, const Point &d) {
+  return dot(cross(minus(b, a), minus(c, a)), minus(d, a));
+}
+
+inline Point weightedSimplexCenter(
+    const long *vertices, int count,
+    const std::vector<Point> &points,
+    const std::vector<double> &cellPreference) {
+  Point center = {0.0, 0.0, 0.0};
+  double weightSum = 0.0;
+  for (int local = 0; local < count; ++local) {
+    // A cell asking for more volume must push the common dual node away from
+    // its seed, hence the inverse preference in the affine combination.
+    const double weight = 1.0 / cellPreference[vertices[local]];
+    center = add(center, scale(points[vertices[local]], weight));
+    weightSum += weight;
+  }
+  return scale(center, 1.0 / weightSum);
+}
+
+template<class MeshType>
+inline std::vector<double> dualCellVolumes(
+    const MeshType &mesh,
+    const std::vector<Point> &points,
+    const std::vector<double> &cellPreference) {
+  std::vector<double> volumes(mesh.nv, 0.0);
+  for (long tet = 0; tet < mesh.nt; ++tet) {
+    long vertex[4];
+    for (int local = 0; local < 4; ++local)
+      vertex[local] = mesh(mesh[tet][local]);
+    const Point tetCenter =
+        weightedSimplexCenter(vertex, 4, points, cellPreference);
+    for (int vi = 0; vi < 4; ++vi) {
+      const long v = vertex[vi];
+      for (int ui = 0; ui < 4; ++ui) {
+        if (ui == vi)
+          continue;
+        const long edgeVertex[2] = {v, vertex[ui]};
+        const Point edgeCenter =
+            weightedSimplexCenter(edgeVertex, 2, points, cellPreference);
+        for (int wi = 0; wi < 4; ++wi) {
+          if (wi == vi || wi == ui)
+            continue;
+          const long faceVertex[3] = {v, vertex[ui], vertex[wi]};
+          const Point faceCenter =
+              weightedSimplexCenter(faceVertex, 3, points, cellPreference);
+          volumes[v] += std::abs(signedTetVolume6(
+              points[v], edgeCenter, faceCenter, tetCenter)) / 6.0;
+        }
+      }
+    }
+  }
+  return volumes;
+}
+
+inline double coefficientOfVariation(const std::vector<double> &values) {
+  if (values.empty())
+    return 0.0;
+  double mean = 0.0;
+  for (std::vector<double>::const_iterator value = values.begin();
+       value != values.end(); ++value)
+    mean += *value;
+  mean /= values.size();
+  if (mean <= 0.0)
+    return 0.0;
+  double variance = 0.0;
+  for (std::vector<double>::const_iterator value = values.begin();
+       value != values.end(); ++value) {
+    const double difference = *value - mean;
+    variance += difference * difference;
+  }
+  return std::sqrt(variance / values.size()) / mean;
+}
+
+inline double boundaryInteriorVolumeRatio(
+    const std::vector<double> &volumes,
+    const std::vector<char> &boundaryVertex) {
+  double boundarySum = 0.0;
+  double interiorSum = 0.0;
+  long boundaryCount = 0;
+  long interiorCount = 0;
+  for (long vertex = 0; vertex < static_cast<long>(volumes.size()); ++vertex) {
+    if (boundaryVertex[vertex]) {
+      boundarySum += volumes[vertex];
+      ++boundaryCount;
+    } else {
+      interiorSum += volumes[vertex];
+      ++interiorCount;
+    }
+  }
+  if (!boundaryCount || !interiorCount || interiorSum <= 0.0)
+    return 0.0;
+  return (boundarySum / boundaryCount) / (interiorSum / interiorCount);
+}
+
+template<class MeshType>
+inline long regularizeDualVolumes(
+    const MeshType &mesh,
+    const std::vector<Point> &points,
+    long requestedIterations,
+    double relaxation,
+    std::vector<double> &cellPreference,
+    double &initialCv,
+    double &finalCv,
+    double &initialBoundaryRatio,
+    double &finalBoundaryRatio) {
+  cellPreference.assign(mesh.nv, 1.0);
+  initialCv = finalCv = 0.0;
+  initialBoundaryRatio = finalBoundaryRatio = 0.0;
+  if (requestedIterations <= 0)
+    return 0;
+
+  std::vector<std::set<long> > neighbourSets(mesh.nv);
+  std::vector<char> boundaryVertex(mesh.nv, 0);
+  for (long tet = 0; tet < mesh.nt; ++tet) {
+    long vertex[4];
+    for (int local = 0; local < 4; ++local)
+      vertex[local] = mesh(mesh[tet][local]);
+    for (int first = 0; first < 4; ++first)
+      for (int second = first + 1; second < 4; ++second) {
+        neighbourSets[vertex[first]].insert(vertex[second]);
+        neighbourSets[vertex[second]].insert(vertex[first]);
+      }
+  }
+  for (long face = 0; face < mesh.nbe; ++face)
+    for (int local = 0; local < 3; ++local)
+      boundaryVertex[mesh(mesh.be(face)[local])] = 1;
+
+  std::vector<double> volumes =
+      dualCellVolumes(mesh, points, cellPreference);
+  initialCv = coefficientOfVariation(volumes);
+  initialBoundaryRatio =
+      boundaryInteriorVolumeRatio(volumes, boundaryVertex);
+  long completedIterations = 0;
+  for (long iteration = 0; iteration < requestedIterations; ++iteration) {
+    std::vector<double> updatedPreference(cellPreference);
+    double maximumLogUpdate = 0.0;
+    for (long vertex = 0; vertex < mesh.nv; ++vertex) {
+      if (volumes[vertex] <= 0.0 || neighbourSets[vertex].empty())
+        continue;
+      double localTarget = 0.0;
+      long targetCount = 0;
+      // Boundary cells have a truncated vertex star. Compare them directly
+      // with adjacent interior cells instead of averaging mostly with other
+      // small boundary cells. Interior targets are smoothed within the
+      // interior population so that the two updates do not cancel each other.
+      for (std::set<long>::const_iterator neighbour =
+               neighbourSets[vertex].begin();
+           neighbour != neighbourSets[vertex].end(); ++neighbour) {
+        if (!boundaryVertex[*neighbour]) {
+          localTarget += volumes[*neighbour];
+          ++targetCount;
+        }
+      }
+      if (!boundaryVertex[vertex]) {
+        localTarget += volumes[vertex];
+        ++targetCount;
+      }
+      if (!targetCount) {
+        localTarget = volumes[vertex];
+        targetCount = 1;
+        for (std::set<long>::const_iterator neighbour =
+                 neighbourSets[vertex].begin();
+             neighbour != neighbourSets[vertex].end(); ++neighbour) {
+          localTarget += volumes[*neighbour];
+          ++targetCount;
+        }
+      }
+      localTarget /= targetCount;
+      const double logUpdate =
+          relaxation * std::log(localTarget / volumes[vertex]);
+      maximumLogUpdate = std::max(maximumLogUpdate, std::abs(logUpdate));
+      updatedPreference[vertex] =
+          cellPreference[vertex] * std::exp(logUpdate);
+    }
+
+    // Only relative preferences matter. Normalization also prevents drift
+    // and keeps all weighted centers comfortably inside their simplices.
+    double meanLogPreference = 0.0;
+    for (long vertex = 0; vertex < mesh.nv; ++vertex)
+      meanLogPreference += std::log(updatedPreference[vertex]);
+    meanLogPreference /= mesh.nv;
+    for (long vertex = 0; vertex < mesh.nv; ++vertex)
+      cellPreference[vertex] = std::max(
+          0.05, std::min(20.0,
+              std::exp(std::log(updatedPreference[vertex]) -
+                       meanLogPreference)));
+
+    volumes = dualCellVolumes(mesh, points, cellPreference);
+    ++completedIterations;
+    if (maximumLogUpdate <= 1.e-10)
+      break;
+  }
+  finalCv = coefficientOfVariation(volumes);
+  finalBoundaryRatio =
+      boundaryInteriorVolumeRatio(volumes, boundaryVertex);
+  return completedIterations;
+}
+
 inline Point polygonAreaVector(const std::vector<long> &polygon,
                                const std::vector<Point> &points) {
   Point area = {0.0, 0.0, 0.0};
@@ -303,7 +503,7 @@ class pdmtBuildDual3D_Op : public E_F0mps {
 public:
   Expression mesh;
 
-  static const int n_name_param = 10;
+  static const int n_name_param = 12;
   static basicAC_F0::name_and_type name_param[];
   Expression nargs[n_name_param];
 
@@ -325,7 +525,9 @@ basicAC_F0::name_and_type pdmtBuildDual3D_Op::name_param[] = {
     {"meshFile", &typeid(std::string *)},
     {"conserveEdge", &typeid(std::string *)},
     {"mode", &typeid(std::string *)},
-    {"medMeshName", &typeid(std::string *)}};
+    {"medMeshName", &typeid(std::string *)},
+    {"smoothIterations", &typeid(long)},
+    {"smoothRelaxation", &typeid(double)}};
 
 class pdmtBuildDual3D : public OneOperator {
 public:
@@ -355,6 +557,10 @@ AnyType pdmtBuildDual3D_Op::operator()(Stack stack) const {
   std::string conserveEdge;
   std::string mode = "smooth_dual";
   std::string medMeshName;
+  const long smoothIterations =
+      nargs[10] ? GetAny<long>((*nargs[10])(stack)) : 0;
+  const double smoothRelaxation =
+      nargs[11] ? GetAny<double>((*nargs[11])(stack)) : 0.3;
   if (nargs[6])
     meshFile = *GetAny<std::string *>((*nargs[6])(stack));
   if (nargs[7])
@@ -371,6 +577,10 @@ AnyType pdmtBuildDual3D_Op::operator()(Stack stack) const {
     ExecError("PdmtBuildDual3D: featureAngle must be between 0 and 180 degrees");
   if (mode != "subdivided_dual" && mode != "smooth_dual")
     ExecError("PdmtBuildDual3D: mode must be subdivided_dual or smooth_dual");
+  if (smoothIterations < 0)
+    ExecError("PdmtBuildDual3D: smoothIterations must be non-negative");
+  if (smoothRelaxation <= 0.0 || smoothRelaxation > 1.0)
+    ExecError("PdmtBuildDual3D: smoothRelaxation must be in (0,1]");
   const bool smoothDual = mode == "smooth_dual";
 
   std::set<EdgeKey> primalEdges;
@@ -424,13 +634,24 @@ AnyType pdmtBuildDual3D_Op::operator()(Stack stack) const {
     Point p = {Th(v).x, Th(v).y, Th(v).z};
     pointList.push_back(p);
   }
+  std::vector<double> cellPreference;
+  double initialVolumeCv = 0.0;
+  double finalVolumeCv = 0.0;
+  double initialBoundaryRatio = 0.0;
+  double finalBoundaryRatio = 0.0;
+  const long completedSmoothIterations = regularizeDualVolumes(
+      Th, pointList, smoothIterations, smoothRelaxation, cellPreference,
+      initialVolumeCv, finalVolumeCv, initialBoundaryRatio,
+      finalBoundaryRatio);
+  if (cellPreference.empty())
+    cellPreference.assign(Th.nv, 1.0);
 
   std::map<EdgeKey, long> edgeNodes;
   for (std::set<EdgeKey>::const_iterator it = primalEdges.begin();
        it != primalEdges.end(); ++it) {
-    const Point a = pointList[(*it)[0]];
-    const Point b = pointList[(*it)[1]];
-    Point p = {(a.x + b.x) * 0.5, (a.y + b.y) * 0.5, (a.z + b.z) * 0.5};
+    const long vertex[2] = {(*it)[0], (*it)[1]};
+    const Point p =
+        weightedSimplexCenter(vertex, 2, pointList, cellPreference);
     edgeNodes[*it] = static_cast<long>(pointList.size());
     pointList.push_back(p);
   }
@@ -438,28 +659,20 @@ AnyType pdmtBuildDual3D_Op::operator()(Stack stack) const {
   std::map<FaceKey, long> faceNodes;
   for (std::set<FaceKey>::const_iterator it = primalFaces.begin();
        it != primalFaces.end(); ++it) {
-    const Point a = pointList[(*it)[0]];
-    const Point b = pointList[(*it)[1]];
-    const Point c = pointList[(*it)[2]];
-    Point p = {(a.x + b.x + c.x) / 3.0,
-               (a.y + b.y + c.y) / 3.0,
-               (a.z + b.z + c.z) / 3.0};
+    const long vertex[3] = {(*it)[0], (*it)[1], (*it)[2]};
+    const Point p =
+        weightedSimplexCenter(vertex, 3, pointList, cellPreference);
     faceNodes[*it] = static_cast<long>(pointList.size());
     pointList.push_back(p);
   }
 
   std::vector<long> tetNodes(Th.nt);
   for (long t = 0; t < Th.nt; ++t) {
-    Point p = {0.0, 0.0, 0.0};
-    for (int i = 0; i < 4; ++i) {
-      const long v = Th(Th[t][i]);
-      p.x += pointList[v].x;
-      p.y += pointList[v].y;
-      p.z += pointList[v].z;
-    }
-    p.x *= 0.25;
-    p.y *= 0.25;
-    p.z *= 0.25;
+    long vertex[4];
+    for (int i = 0; i < 4; ++i)
+      vertex[i] = Th(Th[t][i]);
+    const Point p =
+        weightedSimplexCenter(vertex, 4, pointList, cellPreference);
     tetNodes[t] = static_cast<long>(pointList.size());
     pointList.push_back(p);
   }
@@ -663,6 +876,17 @@ AnyType pdmtBuildDual3D_Op::operator()(Stack stack) const {
   }
 
   if (verbosity) {
+    if (smoothIterations > 0)
+      std::cout << "PDMT 3D regularization: completed "
+                << completedSmoothIterations << "/" << smoothIterations
+                << " dual-volume iterations at relaxation "
+                << smoothRelaxation
+                << "; cell-volume CV " << initialVolumeCv
+                << " -> " << finalVolumeCv
+                << "; mean boundary/interior volume ratio "
+                << initialBoundaryRatio << " -> " << finalBoundaryRatio
+                << " (primal boundary and conserved edges unchanged)"
+                << std::endl;
     std::cout << "PDMT 3D " << mode << ": " << Th.nt << " tetrahedra -> " << Th.nv
               << " polyhedra, " << polygonFaces.size() << " polygonal faces and "
               << pointList.size() << " nodes" << std::endl;

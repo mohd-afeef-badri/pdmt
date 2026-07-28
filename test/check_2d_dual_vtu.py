@@ -3,6 +3,7 @@
 
 import argparse
 from collections import Counter
+import math
 from pathlib import Path
 import xml.etree.ElementTree as ET
 
@@ -105,6 +106,46 @@ def check_mesh(path, expected_polygons=None, expected_boundary=None):
 
     return len(polygons), total_polygon_vertices, len(polygon_boundary)
 
+def area_statistics(path):
+    points, cells = read_mesh(path)
+    polygons = [nodes for cell_type, nodes in cells if cell_type == VTK_POLYGON]
+    lines = [nodes for cell_type, nodes in cells if cell_type == VTK_LINE]
+    explicit_boundary = {
+        edge(line[0], line[1]) for line in lines if len(line) == 2
+    }
+    areas = []
+    boundary_flags = []
+    for polygon in polygons:
+        twice_area = 0.0
+        boundary = False
+        for index, node in enumerate(polygon):
+            next_node = polygon[(index + 1) % len(polygon)]
+            x0, y0, _ = points[node]
+            x1, y1, _ = points[next_node]
+            twice_area += x0 * y1 - x1 * y0
+            boundary |= edge(node, next_node) in explicit_boundary
+        areas.append(0.5 * abs(twice_area))
+        boundary_flags.append(boundary)
+
+    mean = sum(areas) / len(areas)
+    cv = math.sqrt(
+        sum((area - mean) ** 2 for area in areas) / len(areas)
+    ) / mean
+    boundary_areas = [
+        area for area, boundary in zip(areas, boundary_flags) if boundary
+    ]
+    interior_areas = [
+        area for area, boundary in zip(areas, boundary_flags) if not boundary
+    ]
+    ratio = 0.0
+    if boundary_areas and interior_areas:
+        ratio = (
+            sum(boundary_areas) / len(boundary_areas)
+        ) / (
+            sum(interior_areas) / len(interior_areas)
+        )
+    return len(polygons), cv, ratio
+
 
 def main():
     parser = argparse.ArgumentParser()
@@ -112,6 +153,7 @@ def main():
     parser.add_argument("--expect-polygons", type=int)
     parser.add_argument("--expect-boundary", type=int)
     parser.add_argument("--more-connectivity-than", type=Path)
+    parser.add_argument("--regularized-from", type=Path)
     args = parser.parse_args()
 
     polygon_count, connectivity_count, boundary_count = check_mesh(
@@ -127,10 +169,37 @@ def main():
                 f"{reference_connectivity})"
             )
 
+    regularization_message = ""
+    if args.regularized_from is not None:
+        reference_count, reference_cv, reference_ratio = area_statistics(
+            args.regularized_from
+        )
+        current_count, current_cv, current_ratio = area_statistics(args.mesh)
+        if current_count != reference_count:
+            raise AssertionError("regularization changed the polygon count")
+        if current_cv >= reference_cv - 1.0e-6:
+            raise AssertionError(
+                "regularization did not reduce polygon-area variation "
+                f"({reference_cv:.6g} -> {current_cv:.6g})"
+            )
+        if reference_ratio > 0.0 and (
+            abs(current_ratio - 1.0) >= abs(reference_ratio - 1.0)
+        ):
+            raise AssertionError(
+                "regularization did not bring mean boundary area closer to "
+                f"the interior area ({reference_ratio:.6g} -> "
+                f"{current_ratio:.6g})"
+            )
+        regularization_message = (
+            f"; area CV {reference_cv:.6f} -> {current_cv:.6f}, "
+            f"boundary/interior ratio {reference_ratio:.6f} -> "
+            f"{current_ratio:.6f}"
+        )
+
     print(
         f"{args.mesh}: {polygon_count} valid polygons, "
         f"{connectivity_count} polygon vertices, "
-        f"{boundary_count} boundary segments"
+        f"{boundary_count} boundary segments{regularization_message}"
     )
 
 

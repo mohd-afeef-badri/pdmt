@@ -26,7 +26,7 @@ if (angleCount != 6 || angleCells.n != 6) exit(302);
 int conservedCount = PdmtBuildDual3S(Th,
     nodes=conservedNodes, cells=conservedCells, labels=conservedLabels,
     featureAngle=180.0, meshFile=inputMesh, conserveEdge="bla",
-    mode="smooth_dual");
+    mode="smooth_dual", smoothIterations=3, smoothRelaxation=0.3);
 if (conservedCount != 6 || conservedCells.n != 6) exit(303);
 if (conservedLabels.n != conservedCells.n) exit(304);
 
@@ -84,6 +84,72 @@ closedCount = PdmtBuildDual3S(Closed,
 if (closedCount != 4 || closedSmoothNodes.n != 4) exit(308);
 for (int cell = 0; cell < closedSmoothCells.n; ++cell)
   if (closedSmoothCells[cell].n != 3) exit(309);
+
+// Surface-area regularization must work for both dual modes. The open
+// fixture has four truncated boundary stars around one interior seed.
+meshS Open = gmshloadS("open_surface.msh3d");
+real[int,int] openSmoothNodes(0,0), openSmoothRegularizedNodes(0,0);
+real[int,int] openSubdividedNodes(0,0), openSubdividedRegularizedNodes(0,0);
+int[int][int] openSmoothCells, openSmoothRegularizedCells;
+int[int][int] openSubdividedCells, openSubdividedRegularizedCells;
+int[int] openSmoothLabels, openSmoothRegularizedLabels;
+int[int] openSubdividedLabels, openSubdividedRegularizedLabels;
+real[int,int] openFeatureNodes(0,0), openFeatureRegularizedNodes(0,0);
+int[int][int] openFeatureCells, openFeatureRegularizedCells;
+int[int] openFeatureLabels, openFeatureRegularizedLabels;
+
+int openCount = PdmtBuildDual3S(Open,
+    nodes=openSmoothNodes, cells=openSmoothCells, labels=openSmoothLabels,
+    featureAngle=180.0, mode="smooth_dual");
+int openRegularizedCount = PdmtBuildDual3S(Open,
+    nodes=openSmoothRegularizedNodes, cells=openSmoothRegularizedCells,
+    labels=openSmoothRegularizedLabels, featureAngle=180.0,
+    mode="smooth_dual", smoothIterations=3, smoothRelaxation=0.3);
+if (openCount != 5 || openRegularizedCount != openCount) exit(311);
+
+openCount = PdmtBuildDual3S(Open,
+    nodes=openSubdividedNodes, cells=openSubdividedCells,
+    labels=openSubdividedLabels, featureAngle=180.0,
+    mode="subdivided_dual");
+openRegularizedCount = PdmtBuildDual3S(Open,
+    nodes=openSubdividedRegularizedNodes,
+    cells=openSubdividedRegularizedCells,
+    labels=openSubdividedRegularizedLabels, featureAngle=180.0,
+    mode="subdivided_dual", smoothIterations=3, smoothRelaxation=0.3);
+if (openCount != 5 || openRegularizedCount != openCount) exit(312);
+
+openCount = PdmtBuildDual3S(Open,
+    nodes=openFeatureNodes, cells=openFeatureCells,
+    labels=openFeatureLabels, featureAngle=180.0,
+    meshFile="open_surface.msh3d", conserveEdge="ridge",
+    mode="smooth_dual");
+openRegularizedCount = PdmtBuildDual3S(Open,
+    nodes=openFeatureRegularizedNodes,
+    cells=openFeatureRegularizedCells,
+    labels=openFeatureRegularizedLabels, featureAngle=180.0,
+    meshFile="open_surface.msh3d", conserveEdge="ridge",
+    mode="smooth_dual", smoothIterations=3, smoothRelaxation=0.3);
+if (openCount != 6 || openRegularizedCount != openCount) exit(313);
+
+PdmtPolyMeshWrite("open_surface_smooth.vtu",
+    nodes=openSmoothNodes, cells=openSmoothCells, labels=openSmoothLabels);
+PdmtPolyMeshWrite("open_surface_smooth_regularized.vtu",
+    nodes=openSmoothRegularizedNodes, cells=openSmoothRegularizedCells,
+    labels=openSmoothRegularizedLabels);
+PdmtPolyMeshWrite("open_surface_subdivided.vtu",
+    nodes=openSubdividedNodes, cells=openSubdividedCells,
+    labels=openSubdividedLabels);
+PdmtPolyMeshWrite("open_surface_subdivided_regularized.vtu",
+    nodes=openSubdividedRegularizedNodes,
+    cells=openSubdividedRegularizedCells,
+    labels=openSubdividedRegularizedLabels);
+PdmtPolyMeshWrite("open_surface_feature.vtu",
+    nodes=openFeatureNodes, cells=openFeatureCells,
+    labels=openFeatureLabels);
+PdmtPolyMeshWrite("open_surface_feature_regularized.vtu",
+    nodes=openFeatureRegularizedNodes,
+    cells=openFeatureRegularizedCells,
+    labels=openFeatureRegularizedLabels);
 
 PdmtPolyMeshWrite("folded_surface_poly.vtu",
     nodes=conservedNodes, cells=conservedCells, labels=conservedLabels);
