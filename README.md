@@ -145,8 +145,8 @@ After installation is done you can simply launch the PDMT mesh conversion via a 
 - `--feature_angle`: preserve 3D boundary edges sharper than this angle (`45` degrees by default).
 - `--conserve_edge`: comma-separated Gmsh/MED edge-group names that must remain as feature-edge chains in 3D/3S output, or `ALL` to conserve every available edge group.
 - `--mode`: dual construction for every dimension, either `subdivided_dual` or `smooth_dual`. The defaults are `smooth_dual` for 2D/3D and `subdivided_dual` for 3S.
-- `--smooth_iterations`: number of boundary-aware dual-volume balancing passes in 3D (`0` by default).
-- `--smooth_relaxation`: strength of each 3D volume-balancing pass, in `(0,1]` (`0.3` by default).
+- `--smooth_iterations`: number of boundary-aware dual-area (2D) or dual-volume (3D) balancing passes (`0` by default).
+- `--smooth_relaxation`: strength of each 2D/3D balancing pass, in `(0,1]` (`0.3` by default).
 
 ![image](https://github.com/mohd-afeef-badri/pdmt/assets/52162083/8ae5798d-5a4f-474d-ae39-c7207085f7bd)
 ![image](https://github.com/mohd-afeef-badri/pdmt/assets/52162083/03f0e8ae-75dd-4823-870b-4c65fab363fe)
@@ -183,6 +183,20 @@ PDMT --dimension 2 \
 ```
 
 The two modes support the same 2D input and output formats. Use `subdivided_dual` when the dual should explicitly follow the barycentric subdivision, and `smooth_dual` when straighter, less subdivided polygon boundaries are preferred.
+
+Both modes support boundary-aware polygon-area regularization:
+
+```bash
+PDMT --dimension 2 \
+  --mesh square \
+  --square_mesh_size 20 \
+  --mode smooth_dual \
+  --smooth_iterations 3 \
+  --smooth_relaxation 0.3 \
+  --out_mesh square_regularized.vtu
+```
+
+Each pass measures the actual output polygon areas. Boundary polygons are compared directly with adjacent interior polygons, then weighted triangle centres and edge points are moved to redistribute area. Original boundary vertices remain fixed, and every weighted boundary point remains on its original primal edge. A relaxation of `0.3` applies thirty percent of the multiplicative area correction in each pass. With verbose output, PDMT reports the polygon-area coefficient of variation and mean boundary/interior area ratio before and after regularization.
 
 ### 3D Polyhedral meshes
 
