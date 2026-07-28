@@ -95,6 +95,8 @@ func int run3D (){
   real featureAngle  = getARGV("--feature_angle", 45.0);
   string conserveEdge = getARGV("--conserve_edge", "");
   string dualMode     = getARGV("--mode", "smooth_dual");
+  int smoothIterations = getARGV("--smooth_iterations", 0);
+  real smoothRelaxation = getARGV("--smooth_relaxation", 0.3);
 
   mesh3 Th3 = loadTheMesh3(ThName, MedMeshName);
 
@@ -114,7 +116,9 @@ func int run3D (){
       meshFile = ThName,
       conserveEdge = conserveEdge,
       mode = dualMode,
-      medMeshName = MedMeshName);
+      medMeshName = MedMeshName,
+      smoothIterations = smoothIterations,
+      smoothRelaxation = smoothRelaxation);
 
   if (numberOfPolyhedra <= 0) {
     cout << "PDMT failed to build a 3D dual mesh" << endl;
