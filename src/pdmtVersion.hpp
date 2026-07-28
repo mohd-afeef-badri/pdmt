@@ -32,8 +32,8 @@ int PdmtVersion()
 
 ===================================================================
 
-  PDMT Version 0.2
-    Copyright (C) CEA 2022 - 2024
+  PDMT Version 1.0
+    Copyright (C) CEA 2022 - 2026
 
 
     This is free software; see the source for copying conditions.
