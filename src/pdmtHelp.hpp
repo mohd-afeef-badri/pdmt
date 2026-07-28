@@ -40,8 +40,8 @@ int PdmtHelp()
   --conserve_edge    : Comma-separated Gmsh/MED edge-group names, or ALL
   --mode             : Dual construction: subdivided_dual or smooth_dual
                          defaults: smooth_dual for 2D/3D, subdivided_dual for 3S
-  --smooth_iterations: Boundary-aware dual-volume passes in 3D (default: 0)
-  --smooth_relaxation: 3D volume-balancing relaxation in (0,1] (default: 0.3)
+  --smooth_iterations: Boundary-aware area/volume passes in 2D/3D (default: 0)
+  --smooth_relaxation: 2D/3D balancing relaxation in (0,1] (default: 0.3)
   --out_mesh         : Provide name for saved mesh
                          accepts: .med, .vtu, .vtk, .typ2
   --square_mesh_size : Provide mesh size for square mesh
@@ -89,6 +89,11 @@ int PdmtHelp()
 
   # Use the subdivided 2D dual, routing dual edges through primal edge centres
   PDMT --dimension 2 --mode subdivided_dual --mesh ./in.msh --out_mesh subdivided.vtu
+
+  # Balance 2D polygon areas while preserving the primal boundary
+  PDMT --dimension 2 --mode smooth_dual --mesh ./in.msh \
+       --smooth_iterations 3 --smooth_relaxation 0.3 \
+       --out_mesh regularized.vtu
 
   # Convert a tetrahedral mesh to a 3D polyhedral VTU mesh
   PDMT --dimension 3 --mesh ./tetra.mesh --out_mesh polyhedra.vtu
