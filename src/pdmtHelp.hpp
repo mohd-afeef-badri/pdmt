@@ -40,8 +40,8 @@ int PdmtHelp()
   --conserve_edge    : Comma-separated Gmsh/MED edge-group names, or ALL
   --mode             : Dual construction: subdivided_dual or smooth_dual
                          defaults: smooth_dual for 2D/3D, subdivided_dual for 3S
-  --smooth_iterations: Boundary-aware area/volume passes in 2D/3D (default: 0)
-  --smooth_relaxation: 2D/3D balancing relaxation in (0,1] (default: 0.3)
+  --smooth_iterations: Boundary-aware area/volume passes in 2D/3D/3S (default: 0)
+  --smooth_relaxation: 2D/3D/3S balancing relaxation in (0,1] (default: 0.3)
   --out_mesh         : Provide name for saved mesh
                          accepts: .med, .vtu, .vtk, .typ2
   --square_mesh_size : Provide mesh size for square mesh
@@ -112,6 +112,11 @@ int PdmtHelp()
 
   # Convert a triangular surface mesh embedded in 3D
   PDMT --dimension 3S --mesh ./surface.msh --out_mesh polygons.vtu
+
+  # Balance 3S polygon areas while preserving surface features
+  PDMT --dimension 3S --mesh ./surface.msh --mode smooth_dual \
+       --smooth_iterations 3 --smooth_relaxation 0.3 \
+       --out_mesh regularized-surface.vtu
 
   # Read a named triangular MED surface and write MED polygons
   PDMT --dimension 3S --mesh ./surface.med --med_mesh_name TriangularMesh \
