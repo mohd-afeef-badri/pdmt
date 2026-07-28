@@ -145,6 +145,8 @@ After installation is done you can simply launch the PDMT mesh conversion via a 
 - `--feature_angle`: preserve 3D boundary edges sharper than this angle (`45` degrees by default).
 - `--conserve_edge`: comma-separated Gmsh/MED edge-group names that must remain as feature-edge chains in 3D/3S output, or `ALL` to conserve every available edge group.
 - `--mode`: dual construction for every dimension, either `subdivided_dual` or `smooth_dual`. The defaults are `smooth_dual` for 2D/3D and `subdivided_dual` for 3S.
+- `--smooth_iterations`: number of boundary-aware dual-volume balancing passes in 3D (`0` by default).
+- `--smooth_relaxation`: strength of each 3D volume-balancing pass, in `(0,1]` (`0.3` by default).
 
 ![image](https://github.com/mohd-afeef-badri/pdmt/assets/52162083/8ae5798d-5a4f-474d-ae39-c7207085f7bd)
 ![image](https://github.com/mohd-afeef-badri/pdmt/assets/52162083/03f0e8ae-75dd-4823-870b-4c65fab363fe)
@@ -207,6 +209,22 @@ PDMT --dimension 3 \
 
 In either mode, domain-boundary anchors, sharp features, region interfaces, and curves selected by `--conserve_edge` take priority and remain in the polyhedron connectivity. This keeps every polyhedron closed and conforming.
 
+#### Boundary-aware 3D regularization
+
+Either 3D dual representation can be regularized by redistributing volume between neighbouring dual cells. Each pass measures the current polyhedral volumes. A boundary cell is compared directly with adjacent interior cells, rather than mostly with other truncated boundary cells. PDMT then moves the shared dual points inside their original primal edges, faces, and tetrahedra. The tetrahedral seed vertices themselves do not move:
+
+```bash
+PDMT --dimension 3 \
+  --mesh tetrahedra.med \
+  --med_mesh_name TetrahedralMesh \
+  --mode smooth_dual \
+  --smooth_iterations 3 \
+  --smooth_relaxation 0.3 \
+  --out_mesh regularized_polyhedra.vtu
+```
+
+Two to five iterations with a relaxation between `0.2` and `0.4` are a reasonable starting point. The operation does not modify the input file, move the primal boundary, or remove explicitly conserved geometry. Weighted dual edge points remain on their original primal edge, weighted face points remain inside their original face, and weighted tetrahedron points remain inside their original tetrahedron. With verbose output, PDMT reports both the cell-volume coefficient of variation and the mean boundary/interior cell-volume ratio before and after regularization.
+
 Named physical curve groups in an ASCII Gmsh 2.x input can be protected independently of the angle criterion. For example, to retain the group `bla` from `cylinder_edge.msh`:
 
 ```bash
@@ -252,7 +270,8 @@ PdmtBuildDual3D(Th3,
   labels=cellLabels, faceLabels=faceLabels,
   featureAngle=45.0,
   meshFile="tetrahedra.msh", conserveEdge="ridge,corner",
-  mode="smooth_dual");
+  mode="smooth_dual",
+  smoothIterations=3, smoothRelaxation=0.3);
 
 PdmtPolyMeshWrite("polyhedra.vtu",
   nodes=nodes, cells=cells, faces=faces,
