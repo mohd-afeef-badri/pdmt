@@ -224,8 +224,18 @@ func int run2D (){
  string ThNameOut   = getARGV( "--out_mesh" , "PDMT_POLY_MESH_" ); // Name of the saved mesh
  string MedMeshName = getARGV( "--med_mesh_name" , "Mesh_1" );     // Name of the mesh
  string dualMode    = getARGV( "--mode" , "smooth_dual" );         // smooth_dual or subdivided_dual
+ int smoothIterations = getARGV("--smooth_iterations", 0);
+ real smoothRelaxation = getARGV("--smooth_relaxation", 0.3);
  if (dualMode != "smooth_dual" && dualMode != "subdivided_dual") {
    cout << "PDMT 2D --mode must be smooth_dual or subdivided_dual" << endl;
+   exit(1111);
+ }
+ if (smoothIterations < 0) {
+   cout << "PDMT 2D --smooth_iterations must be non-negative" << endl;
+   exit(1111);
+ }
+ if (smoothRelaxation <= 0.0 || smoothRelaxation > 1.0) {
+   cout << "PDMT 2D --smooth_relaxation must be in (0,1]" << endl;
    exit(1111);
  }
  int smoothDual2D = (dualMode == "smooth_dual");
@@ -623,6 +633,186 @@ macro orderPointsAroundVertex(V, cx, cy)
       indexploy++;
     }
   }
+}
+
+//-----------------------------------------------------------------------
+// Boundary-aware dual-polygon area regularization
+//-----------------------------------------------------------------------
+if(smoothIterations > 0){
+  real[int] cellPreference(ThNn), cellArea(ThNn);
+  real[int] targetSum(ThNn), allNeighbourSum(ThNn);
+  int[int] targetCount(ThNn), allNeighbourCount(ThNn);
+  cellPreference = 1.0;
+
+  real initialAreaCv = 0.0, finalAreaCv = 0.0;
+  real initialBoundaryRatio = 0.0, finalBoundaryRatio = 0.0;
+
+  for(int regularizationIteration=0;
+      regularizationIteration<smoothIterations;
+      ++regularizationIteration){
+    // Measure the actual final polygons for the selected dual mode.
+    for(int cell=0; cell<ThNn; ++cell){
+      real twiceArea = 0.0;
+      for(int local=0; local<PhC[cell].n; ++local){
+        int first = PhC[cell][local];
+        int second = PhC[cell][(local+1)%PhC[cell].n];
+        twiceArea += PhV(first,0)*PhV(second,1)
+                   - PhV(second,0)*PhV(first,1);
+      }
+      cellArea[cell] = 0.5*abs(twiceArea);
+      if(cellArea[cell] <= 1.e-30){
+        cout << "PDMT 2D regularization produced a zero-area polygon" << endl;
+        exit(1111);
+      }
+    }
+
+    if(regularizationIteration == 0){
+      real meanArea = cellArea.sum/ThNn;
+      real variance = 0.0;
+      real boundarySum = 0.0, interiorSum = 0.0;
+      int boundaryCount = 0, interiorCount = 0;
+      for(int cell=0; cell<ThNn; ++cell){
+        variance += (cellArea[cell]-meanArea)^2;
+        if(isBorderNode[cell]){
+          boundarySum += cellArea[cell];
+          boundaryCount++;
+        }else{
+          interiorSum += cellArea[cell];
+          interiorCount++;
+        }
+      }
+      initialAreaCv = sqrt(variance/ThNn)/meanArea;
+      if(boundaryCount > 0 && interiorCount > 0)
+        initialBoundaryRatio =
+          (boundarySum/boundaryCount)/(interiorSum/interiorCount);
+    }
+
+    targetSum = 0.0;
+    allNeighbourSum = 0.0;
+    targetCount = 0;
+    allNeighbourCount = 0;
+    for(int edge=0; edge<PrimalEdgeA.n; ++edge){
+      int first = PrimalEdgeA[edge];
+      int second = PrimalEdgeB[edge];
+      allNeighbourSum[first] += cellArea[second];
+      allNeighbourCount[first]++;
+      allNeighbourSum[second] += cellArea[first];
+      allNeighbourCount[second]++;
+      if(!isBorderNode[second]){
+        targetSum[first] += cellArea[second];
+        targetCount[first]++;
+      }
+      if(!isBorderNode[first]){
+        targetSum[second] += cellArea[first];
+        targetCount[second]++;
+      }
+    }
+
+    real[int] updatedPreference(ThNn);
+    real meanLogPreference = 0.0;
+    for(int regularizedVertex=0; regularizedVertex<ThNn; ++regularizedVertex){
+      real targetArea = cellArea[regularizedVertex];
+      if(isBorderNode[regularizedVertex] &&
+         targetCount[regularizedVertex] > 0)
+        targetArea =
+          targetSum[regularizedVertex]/targetCount[regularizedVertex];
+      else if(!isBorderNode[regularizedVertex])
+        targetArea =
+          (targetSum[regularizedVertex]+cellArea[regularizedVertex])/
+          (targetCount[regularizedVertex]+1);
+      else if(allNeighbourCount[regularizedVertex] > 0)
+        targetArea =
+          (allNeighbourSum[regularizedVertex]+cellArea[regularizedVertex])/
+          (allNeighbourCount[regularizedVertex]+1);
+
+      updatedPreference[regularizedVertex] =
+        cellPreference[regularizedVertex]*
+        exp(smoothRelaxation*
+            log(targetArea/cellArea[regularizedVertex]));
+      meanLogPreference += log(updatedPreference[regularizedVertex]);
+    }
+    meanLogPreference /= ThNn;
+    for(int regularizedVertex=0; regularizedVertex<ThNn;
+        ++regularizedVertex)
+      cellPreference[regularizedVertex] = max(0.05, min(20.0,
+        exp(log(updatedPreference[regularizedVertex])-meanLogPreference)));
+
+    // A cell asking for more area pushes each common dual point away from
+    // its primal seed, hence inverse preferences in these affine averages.
+    for(int triangle=0; triangle<ThNt; ++triangle){
+      int a = Th[triangle][0];
+      int b = Th[triangle][1];
+      int c = Th[triangle][2];
+      real wa = 1.0/cellPreference[a];
+      real wb = 1.0/cellPreference[b];
+      real wc = 1.0/cellPreference[c];
+      real weightSum = wa+wb+wc;
+      PhV(triangle,0) =
+        (wa*Th(a).x+wb*Th(b).x+wc*Th(c).x)/weightSum;
+      PhV(triangle,1) =
+        (wa*Th(a).y+wb*Th(b).y+wc*Th(c).y)/weightSum;
+    }
+
+    if(smoothDual2D){
+      for(int boundaryEdge=0; boundaryEdge<ThNbe; ++boundaryEdge){
+        int a = Th.be(boundaryEdge)[0];
+        int b = Th.be(boundaryEdge)[1];
+        real wa = 1.0/cellPreference[a];
+        real wb = 1.0/cellPreference[b];
+        int node = ThNt+ThNnb+boundaryEdge;
+        PhV(node,0) = (wa*Th(a).x+wb*Th(b).x)/(wa+wb);
+        PhV(node,1) = (wa*Th(a).y+wb*Th(b).y)/(wa+wb);
+      }
+    }else{
+      for(int edge=0; edge<PrimalEdgeA.n; ++edge){
+        int a = PrimalEdgeA[edge];
+        int b = PrimalEdgeB[edge];
+        real wa = 1.0/cellPreference[a];
+        real wb = 1.0/cellPreference[b];
+        int node = ThNt+ThNnb+edge;
+        PhV(node,0) = (wa*Th(a).x+wb*Th(b).x)/(wa+wb);
+        PhV(node,1) = (wa*Th(a).y+wb*Th(b).y)/(wa+wb);
+      }
+    }
+  }
+
+  // Final diagnostics use the updated output polygon coordinates.
+  for(int cell=0; cell<ThNn; ++cell){
+    real twiceArea = 0.0;
+    for(int local=0; local<PhC[cell].n; ++local){
+      int first = PhC[cell][local];
+      int second = PhC[cell][(local+1)%PhC[cell].n];
+      twiceArea += PhV(first,0)*PhV(second,1)
+                 - PhV(second,0)*PhV(first,1);
+    }
+    cellArea[cell] = 0.5*abs(twiceArea);
+  }
+  real meanArea = cellArea.sum/ThNn;
+  real variance = 0.0;
+  real boundarySum = 0.0, interiorSum = 0.0;
+  int boundaryCount = 0, interiorCount = 0;
+  for(int cell=0; cell<ThNn; ++cell){
+    variance += (cellArea[cell]-meanArea)^2;
+    if(isBorderNode[cell]){
+      boundarySum += cellArea[cell];
+      boundaryCount++;
+    }else{
+      interiorSum += cellArea[cell];
+      interiorCount++;
+    }
+  }
+  finalAreaCv = sqrt(variance/ThNn)/meanArea;
+  if(boundaryCount > 0 && interiorCount > 0)
+    finalBoundaryRatio =
+      (boundarySum/boundaryCount)/(interiorSum/interiorCount);
+
+  if(verbosity)
+    cout << "PDMT 2D regularization: completed " << smoothIterations
+         << "/" << smoothIterations
+         << " dual-area iterations at relaxation " << smoothRelaxation
+         << "; cell-area CV " << initialAreaCv << " -> " << finalAreaCv
+         << "; mean boundary/interior area ratio "
+         << initialBoundaryRatio << " -> " << finalBoundaryRatio << endl;
 }
 
 
