@@ -12,7 +12,7 @@ on:
 jobs:
   build:
 
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
 
     steps:
     - uses: actions/checkout@v4
@@ -20,8 +20,8 @@ jobs:
       run: |
         sudo apt-get update
         sudo apt-get install mpich
-        wget https://github.com/FreeFem/FreeFem-sources/releases/download/v4.15/FreeFEM-4.15-amd64-ubuntu24.04.deb
-        sudo apt install ./FreeFEM-4.15-amd64-ubuntu24.04.deb
+        wget https://github.com/FreeFem/FreeFem-sources/releases/download/v4.17/FreeFEM-4.17-amd64-ubuntu24.04.deb
+        sudo apt install ./FreeFEM-4.17-amd64-ubuntu24.04.deb
     - name: configure
       run: autoreconf -i && ./configure
     - name: make
