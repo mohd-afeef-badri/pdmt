@@ -1,4 +1,4 @@
-AC_INIT([pdmt],[0.2],[mohd-afeef.badri@cea.fr])
+AC_INIT([pdmt],[1.0],[mohd-afeef.badri@cea.fr])
 AM_INIT_AUTOMAKE([-Wall -Werror foreign])
 
 AC_CONFIG_HEADERS([config.h])
@@ -70,6 +70,10 @@ AC_ARG_WITH([medio],
 	[  --with-medio=        medio root path : (e.g. --with-medio=/home/medio/lib)],
         [medio="$withval"], [medio="no"])
 
+dnl ---------------------------------------------------------------------------
+dnl Dependencies
+dnl ---------------------------------------------------------------------------
+
 AC_ARG_WITH([dependencies],
 	[  --with-dependencies=         Dependencies installation : (e.g. --with-dependencies=yes)],
         [dependencies="$withval"], [dependencies="no"])
@@ -90,6 +94,33 @@ test "$dependencies" == "no" && AC_MSG_WARN([
  simply add the MEDCOUPLING-$$VERSION-MPI.tar.gz
  in /ext folder.
  ])
+
+dnl ---------------------------------------------------------------------------
+dnl MEDCoupling/MEDIO configuration
+dnl ---------------------------------------------------------------------------
+
+AC_ARG_WITH(
+    [dependencies-medcoupling-version],
+    [AS_HELP_STRING(
+        [--with-dependencies-medcoupling-version=VERSION],
+        [MEDCoupling version to use @<:@default=9.15.0@:>@]
+    )],
+    [
+        AS_IF(
+            [test "x$withval" = "xno" || test "x$withval" = "xyes"],
+            [AC_MSG_ERROR(
+                [--with-dependencies-medcoupling-version requires a version, for example 9.15.0]
+            )]
+        )
+        MEDCOUPLING_VERSION="$withval"
+    ],
+    [MEDCOUPLING_VERSION="9.15.0"]
+)
+
+MEDIO_VERSION="1.1"
+
+AC_SUBST([MEDCOUPLING_VERSION])
+AC_SUBST([MEDIO_VERSION])
 
 
 AU_ALIAS([ACX_MPI], [AX_MPI])
@@ -322,11 +353,11 @@ test $hdf5 != no -a $medfile != no -a $medcoupling != no && AC_SUBST(CXXFLAGS_ME
 test $hdf5 != no -a $medfile != no -a $medcoupling != no && AC_SUBST(LDFLAGS_MED,"-L${hdf5}/lib -L${medfile}/lib -L${medcoupling}/lib ${LDFLAGS}"  )
 test $hdf5 != no -a $medfile != no -a $medcoupling != no && AC_SUBST(LIBS_MED,"-lhdf5 -lmedC -lmedloader -lmedcoupling -linterpkernel -lmedcouplingremapper   ${LIBS}"  )
 
-test $dependencies != no && AC_SUBST(CXXFLAGS_MED,"-I$(pwd)/ext/MEDCOUPLING-9.15.0/BINARIES-CO7/hdf5/include -I$(pwd)/ext/MEDCOUPLING-9.15.0/BINARIES-CO7/medfile/include -I$(pwd)/ext/MEDCOUPLING-9.16.0/INSTALL/MEDCOUPLING/include ${CXXFLAGS}"  )
-test $dependencies != no && AC_SUBST(LDFLAGS_MED,"-L$(pwd)/ext/MEDCOUPLING-9.15.0/BINARIES-CO7/hdf5/lib -L$(pwd)/ext/MEDCOUPLING-9.15.0/BINARIES-CO7/medfile/lib -L$(pwd)/ext/MEDCOUPLING-9.16.0/INSTALL/MEDCOUPLING/lib ${LDFLAGS}"  )
+test $dependencies != no && AC_SUBST(CXXFLAGS_MED,"-I$(pwd)/ext/MEDCOUPLING-9.15.0/BINARIES-CO7/hdf5/include -I$(pwd)/ext/MEDCOUPLING-9.15.0/BINARIES-CO7/medfile/include -I$(pwd)/ext/MEDCOUPLING-9.15.0/INSTALL/MEDCOUPLING/include ${CXXFLAGS}"  )
+test $dependencies != no && AC_SUBST(LDFLAGS_MED,"-L$(pwd)/ext/MEDCOUPLING-9.15.0/BINARIES-CO7/hdf5/lib -L$(pwd)/ext/MEDCOUPLING-9.15.0/BINARIES-CO7/medfile/lib -L$(pwd)/ext/MEDCOUPLING-9.15.0/INSTALL/MEDCOUPLING/lib ${LDFLAGS}"  )
 test $dependencies != no && AC_SUBST(LIBS_MED,"-lhdf5 -lmedC -lmedloader -lmedcoupling -linterpkernel -lmedcouplingremapper   ${LIBS}"  )
 
-test $dependencies != no && AC_SUBST(PDMT_MEDCOUPLING_DIR,"$(pwd)/ext/MEDCOUPLING-9.16.0/INSTALL/MEDCOUPLING"  )
+test $dependencies != no && AC_SUBST(PDMT_MEDCOUPLING_DIR,"$(pwd)/ext/MEDCOUPLING-9.15.0/INSTALL/MEDCOUPLING"  )
 test $dependencies != no && AC_SUBST(PDMT_HDF5_DIR,"$(pwd)/ext/MEDCOUPLING-9.15.0/BINARIES-CO7/hdf5"  )
 test $dependencies != no && AC_SUBST(PDMT_MEDFILE_DIR,"$(pwd)/ext/MEDCOUPLING-9.15.0/BINARIES-CO7/medfile"  )
 
