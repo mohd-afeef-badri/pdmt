@@ -50,9 +50,14 @@ int PdmtHelp()
                        works only with '--mesh circle'
   --med_mesh_name    : Provide name of mesh in MED file
                        works with MED input '--mesh file.med'
+
 ===================================================================
                             Usage Examples
 ===================================================================
+
+  -----------------------------------------------------------------
+  2D meshing examples:
+  -----------------------------------------------------------------
 
   # Mesh unit square and print debug info
   PDMT --debug --mesh square
@@ -95,6 +100,10 @@ int PdmtHelp()
        --smooth_iterations 3 --smooth_relaxation 0.3 \
        --out_mesh regularized.vtu
 
+  -----------------------------------------------------------------
+  3D meshing examples:
+  -----------------------------------------------------------------
+
   # Convert a tetrahedral mesh to a 3D polyhedral VTU mesh
   PDMT --dimension 3 --mesh ./tetra.mesh --out_mesh polyhedra.vtu
 
@@ -109,6 +118,10 @@ int PdmtHelp()
   # Retain all barycentric subdivision points in a tetrahedral dual
   PDMT --dimension 3 --mode subdivided_dual --mesh ./tetra.mesh \
        --out_mesh subdivided-polyhedra.vtu
+
+  -----------------------------------------------------------------
+  3D surface meshing examples:
+  -----------------------------------------------------------------
 
   # Convert a triangular surface mesh embedded in 3D
   PDMT --dimension 3S --mesh ./surface.msh --out_mesh polygons.vtu
