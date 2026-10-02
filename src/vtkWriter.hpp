@@ -1,9 +1,12 @@
 
+#include <iomanip>
+
 void writePolyVtu(std::string const * fineName, KNM < double > * nodesPoly, KN < KN < long >> * CellsPoly, KN < KN < long >> * EdgesPoly, KN < long > * LabelsPoly)
 {
 
   ofstream polyWrite;
   polyWrite.open( * fineName);
+  polyWrite << std::setprecision(17);
 
   //------------ Write header ----------------//
 
@@ -48,7 +51,7 @@ void writePolyVtu(std::string const * fineName, KNM < double > * nodesPoly, KN <
   //------------ Write PointsData ----------------//
   {
     polyWrite << "      <Points>\n" <<
-      "        <DataArray type=\"Float32\" Name=\"Points\" NumberOfComponents=\"3\" format=\"ascii\">\n\t";
+      "        <DataArray type=\"Float64\" Name=\"Points\" NumberOfComponents=\"3\" format=\"ascii\">\n\t";
 
     for (int i = 0; i < NumberOfPoints; i++)
       polyWrite << ( * nodesPoly)(i, 0) << "\t" << ( * nodesPoly)(i, 1) << "\t"
@@ -126,6 +129,7 @@ void writePolyVtk(std::string const * fineName, KNM < double > * nodesPoly, KN <
 {
   ofstream polyWrite;
   polyWrite.open( * fineName);
+  polyWrite << std::setprecision(17);
 
   //------------ Write header ----------------//
 
@@ -145,7 +149,7 @@ void writePolyVtk(std::string const * fineName, KNM < double > * nodesPoly, KN <
   {
     int TotalNodes = nodesPoly -> N();
 
-    polyWrite << "POINTS " << TotalNodes << " float\n";
+    polyWrite << "POINTS " << TotalNodes << " double\n";
     for (int i = 0; i < TotalNodes; i++)
       polyWrite << ( * nodesPoly)(i, 0) << "\t" << ( * nodesPoly)(i, 1) << "\t"
                 << (nodesPoly->M() >= 3 ? (*nodesPoly)(i, 2) : 0.0) << "\n";

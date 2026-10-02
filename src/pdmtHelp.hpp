@@ -42,6 +42,14 @@ int PdmtHelp()
                          defaults: smooth_dual for 2D/3D, subdivided_dual for 3S
   --smooth_iterations: Boundary-aware area/volume passes in 2D/3D/3S (default: 0)
   --smooth_relaxation: 2D/3D/3S balancing relaxation in (0,1] (default: 0.3)
+  --viscous-layer  : Add 2D boundary layers: yes or no (default: no)
+                       accepts ASCII Gmsh .msh or MED .med input
+  --viscous-layer_groups: Comma-separated Gmsh physical or MED boundary
+                          group names, or ALL
+  --viscous-layer_count: Number of equal-thickness layers (default: 10)
+  --viscous-layer_thickness: Total layer thickness in mesh units (default: 0.6)
+                         The remaining 2D dual mesh is deformed inward
+                         MED output stores layer cells in group viscous_layers
   --out_mesh         : Provide name for saved mesh
                          accepts: .med, .vtu, .vtk, .typ2
   --square_mesh_size : Provide mesh size for square mesh
@@ -94,6 +102,17 @@ int PdmtHelp()
   PDMT --dimension 2 --mode smooth_dual --mesh ./in.msh \
        --smooth_iterations 3 --smooth_relaxation 0.3 \
        --out_mesh regularized.vtu
+
+  # Add ten viscous layers of total thickness 0.6 at two named boundaries
+  PDMT --dimension 2 --mesh ./in.msh --viscous-layer yes \
+       --viscous-layer_groups tag1,tag2 --viscous-layer_count 10 \
+       --viscous-layer_thickness 0.6 --out_mesh layered.vtu
+
+  # The same operation on a MED mesh and named MED boundary group
+  PDMT --dimension 2 --mesh ./in.med --med_mesh_name TriangularMesh \
+       --viscous-layer yes --viscous-layer_groups wall \
+       --viscous-layer_count 10 --viscous-layer_thickness 0.6 \
+       --out_mesh layered.vtu
 
   # Convert a tetrahedral mesh to a 3D polyhedral VTU mesh
   PDMT --dimension 3 --mesh ./tetra.mesh --out_mesh polyhedra.vtu

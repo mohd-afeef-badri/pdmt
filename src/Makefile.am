@@ -5,6 +5,7 @@ convexHull.hpp \
 dualMesh3D.hpp \
 dualMeshSurface3D.hpp \
 gmshFeatureEdges.hpp \
+viscousLayers2D.hpp \
 medFeatureEdges.hpp \
 polyMeshWrite.hpp \
 polyMesh3DWrite.hpp \

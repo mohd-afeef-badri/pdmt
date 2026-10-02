@@ -17,6 +17,8 @@
 ## TEMP FILES ##
 *.tmp
 repo-activity.txt
+__pycache__/
+*.py[cod]
 
 ## OUTPUT FILES ##
 .output
@@ -34,6 +36,7 @@ compile
 
 ## MESH FILES ##
 *.msh
+!test/viscous_square.msh
 *.medh
 *.med
 

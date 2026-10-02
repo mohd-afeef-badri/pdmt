@@ -1,0 +1,5 @@
+load "./../ext/medio-1.1/src/medio"
+load "gmsh"
+
+mesh Th = gmshload("viscous_square.msh");
+savemedmesh(Th, "viscous_square_input.med");

@@ -33,6 +33,7 @@
 #include "pdmtFunctions.hpp"
 #include "pdmtVersion.hpp"
 #include "pdmtHelp.hpp"
+#include "viscousLayers2D.hpp"
 #ifdef MEDCOUPLING
 #include "medMeshLoader.hpp"
 #endif
@@ -53,6 +54,7 @@ static void InitFF()
   Global.Add("PdmtGetMeshInfo", "(", new OneOperator3_< int,  pmesh, KN< long > *, KN< long > * >(PdmtGetMeshInfo));
   Global.Add("PdmtBuildDual3D", "(", new pdmtBuildDual3D);
   Global.Add("PdmtBuildDual3S", "(", new pdmtBuildDual3S);
+  Global.Add("PdmtAddViscousLayers2D", "(", new pdmtAddViscousLayers2D);
   Global.Add("PdmtPolyMeshWrite"  ,"(", new polyMeshWrite<double>);
 #ifdef MEDCOUPLING
   Global.Add("PdmtLoadMedMesh3", "(", new pdmtMedLoader3);

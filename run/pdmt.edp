@@ -97,6 +97,15 @@ func int run3D (){
   string dualMode     = getARGV("--mode", "smooth_dual");
   int smoothIterations = getARGV("--smooth_iterations", 0);
   real smoothRelaxation = getARGV("--smooth_relaxation", 0.3);
+  string viscousLayer = getARGV("--viscous-layer", "no");
+  if (viscousLayer == "yes") {
+    cout << "PDMT viscous layers are currently supported only with --dimension 2" << endl;
+    exit(1111);
+  }
+  if (viscousLayer != "no") {
+    cout << "PDMT --viscous-layer must be yes or no" << endl;
+    exit(1111);
+  }
 
   mesh3 Th3 = loadTheMesh3(ThName, MedMeshName);
 
@@ -166,6 +175,15 @@ func int run3S (){
   string dualMode     = getARGV("--mode", "subdivided_dual");
   int smoothIterations = getARGV("--smooth_iterations", 0);
   real smoothRelaxation = getARGV("--smooth_relaxation", 0.3);
+  string viscousLayer = getARGV("--viscous-layer", "no");
+  if (viscousLayer == "yes") {
+    cout << "PDMT viscous layers are currently supported only with --dimension 2" << endl;
+    exit(1111);
+  }
+  if (viscousLayer != "no") {
+    cout << "PDMT --viscous-layer must be yes or no" << endl;
+    exit(1111);
+  }
 
   meshS ThS = loadTheMeshS(ThName, MedMeshName);
 
@@ -230,6 +248,31 @@ func int run2D (){
  string dualMode    = getARGV( "--mode" , "smooth_dual" );         // smooth_dual or subdivided_dual
  int smoothIterations = getARGV("--smooth_iterations", 0);
  real smoothRelaxation = getARGV("--smooth_relaxation", 0.3);
+ string viscousLayer = getARGV("--viscous-layer", "no");
+ string viscousLayerGroups = getARGV("--viscous-layer_groups", "");
+ int viscousLayerCount = getARGV("--viscous-layer_count", 10);
+ real viscousLayerThickness = getARGV("--viscous-layer_thickness", 0.6);
+ if (viscousLayer != "yes" && viscousLayer != "no") {
+   cout << "PDMT 2D --viscous-layer must be yes or no" << endl;
+   exit(1111);
+ }
+ if (viscousLayer == "yes" &&
+     ThName.find(".msh") == -1 && ThName.find(".med") == -1) {
+   cout << "PDMT 2D viscous layers require a .msh or .med input mesh" << endl;
+   exit(1111);
+ }
+ if (viscousLayer == "yes" && viscousLayerGroups == "") {
+   cout << "PDMT 2D --viscous-layer_groups must name at least one boundary group" << endl;
+   exit(1111);
+ }
+ if (viscousLayer == "yes" && viscousLayerCount <= 0) {
+   cout << "PDMT 2D --viscous-layer_count must be positive" << endl;
+   exit(1111);
+ }
+ if (viscousLayer == "yes" && viscousLayerThickness <= 0.0) {
+   cout << "PDMT 2D --viscous-layer_thickness must be positive" << endl;
+   exit(1111);
+ }
  if (dualMode != "smooth_dual" && dualMode != "subdivided_dual") {
    cout << "PDMT 2D --mode must be smooth_dual or subdivided_dual" << endl;
    exit(1111);
@@ -367,6 +410,7 @@ func int run2D (){
   int [int]      PhELabels;
   int [int][int] PhC;
   int [int][int] PhE;
+  int viscousCellStart = -1;
 
 {
   int PhNn =  ThNt  + ThNnb + ThNbe;
@@ -551,10 +595,12 @@ macro orderPointsAroundVertex(V, cx, cy)
         count++;
       }
 
-      if(smoothDual2D)
-        pdmtConvexHull(Pix,Piy,PiIndex);
-      else
-        orderPointsAroundVertex(Pi, ThVix[][v], ThViy[][v]);
+      // Every collected point is part of the dual topology.  In particular,
+      // an acute or concave boundary fan can place a boundary midpoint inside
+      // the convex hull of the neighbouring triangle barycentres.  Filtering
+      // with a convex hull would then drop that midpoint and leave the
+      // explicit boundary segment disconnected from its polygon.
+      orderPointsAroundVertex(Pi, ThVix[][v], ThViy[][v]);
 
       PhC[indexploy].resize(PiIndex.n);
 
@@ -571,6 +617,11 @@ macro orderPointsAroundVertex(V, cx, cy)
             {
             poskk[count] = kk;count++;
         }
+      }
+
+      if(count != 2){
+        cout << "PDMT 2D failed to retain both boundary-edge points in a dual polygon" << endl;
+        exit(1111);
       }
 
       int pos = poskk[1];
@@ -625,10 +676,10 @@ macro orderPointsAroundVertex(V, cx, cy)
         }
       }
 
-      if(smoothDual2D)
-        pdmtConvexHull(Pix,Piy,PiIndex);
-      else
-        orderPointsAroundVertex(Pi, ThVix[][v], ThViy[][v]);
+      // Angular ordering preserves all triangle barycentres.  A convex hull
+      // can remove a barycentre in a strongly graded or obtuse fan, breaking
+      // conformity with the neighbouring dual polygons.
+      orderPointsAroundVertex(Pi, ThVix[][v], ThViy[][v]);
 
       PhC[indexploy].resize(PiIndex.n);
       for(int kk=0; kk < PiIndex.n ; kk++)
@@ -819,6 +870,28 @@ if(smoothIterations > 0){
          << initialBoundaryRatio << " -> " << finalBoundaryRatio << endl;
 }
 
+//-----------------------------------------------------------------------
+// Add conforming quadrilateral layers at selected named mesh boundaries
+//-----------------------------------------------------------------------
+if(viscousLayer == "yes"){
+  int addedViscousCells = PdmtAddViscousLayers2D(Th,
+      nodes = PhV,
+      cells = PhC,
+      edges = PhE,
+      labels = PhELabels,
+      meshFile = ThName,
+      medMeshName = MedMeshName,
+      viscousLayerGroups = viscousLayerGroups,
+      viscousLayerCount = viscousLayerCount,
+      viscousLayerThickness = viscousLayerThickness);
+  if(addedViscousCells <= 0){
+    cout << "PDMT failed to add 2D viscous layers" << endl;
+    exit(1111);
+  }
+  // Core polygons may be split before layer cells are appended.
+  viscousCellStart = PhC.n-addedViscousCells;
+}
+
 
 //-----------------------------------------------------------------------
 //  save polygon mesh
@@ -860,7 +933,8 @@ if (ThNameOut != "PDMT_POLY_MESH_"){
                       nodes = PhV,
                       cells = PhC,
                       edges = PhE,          // this is optional
-                      labels = PhELabels    // this is optional
+                      labels = PhELabels,   // this is optional
+                      viscousCellStart = viscousCellStart
                    );
 
 

@@ -8,7 +8,11 @@
 #include <string>
 #include <vector>
 
-void writePolyMed(std::string const * fineName, KNM < double > * nodesPoly, KN < KN < long >> * CellsPoly, KN < KN < long >> * EdgesPoly, KN < long > * LabelsPoly)
+void writePolyMed(std::string const * fineName, KNM < double > * nodesPoly,
+                  KN < KN < long >> * CellsPoly,
+                  KN < KN < long >> * EdgesPoly,
+                  KN < long > * LabelsPoly,
+                  long viscousCellStart)
 {
       //  get nodes of the mesh  //
       int TotalNodes = nodesPoly -> N();
@@ -106,6 +110,13 @@ void writePolyMed(std::string const * fineName, KNM < double > * nodesPoly, KN <
       }
 
       if (LabelsPoly) {
+        if (!EdgesPoly ||
+            LabelsPoly->N() != CellsPoly->N() + EdgesPoly->N())
+          ExecError("PdmtPolyMeshWrite: 2D MED labels must contain all cells and boundary edges");
+        const bool withViscousGroup = viscousCellStart >= 0;
+        if (withViscousGroup &&
+            (viscousCellStart >= CellsPoly->N()))
+          ExecError("PdmtPolyMeshWrite: viscousCellStart must identify at least one appended cell");
 
         MCAuto < MEDFileUMesh > finalMeshWithLabel = MEDFileUMesh::New();
 
@@ -118,31 +129,85 @@ void writePolyMed(std::string const * fineName, KNM < double > * nodesPoly, KN <
         fam2d -> alloc(CellsPoly -> N(), 1);
         fam1d -> alloc(EdgesPoly -> N(), 1);
 
-        mcIdType elemsFams[CellsPoly -> N() + EdgesPoly -> N()];
+        std::vector<mcIdType> elemsFams(
+            CellsPoly->N() + EdgesPoly->N());
 
-        std::set < int > poly2DUniqueLabels;
-        std::set < int > poly1DUniqueLabels;
+        std::set<long> regularCellLabels;
+        std::set<long> viscousCellLabels;
+        std::set<long> allCellLabels;
+        std::set<long> boundaryLabels;
+        for (long i = 0; i < CellsPoly->N(); ++i) {
+          const long label = (*LabelsPoly)(i);
+          allCellLabels.insert(label);
+          if (withViscousGroup && i >= viscousCellStart)
+            viscousCellLabels.insert(label);
+          else
+            regularCellLabels.insert(label);
+        }
+        for (long i = CellsPoly->N();
+             i < EdgesPoly->N() + CellsPoly->N(); ++i)
+          boundaryLabels.insert((*LabelsPoly)(i));
 
-        for (int i = 0; i < CellsPoly -> N(); i++) {
-          poly2DUniqueLabels.insert(( * LabelsPoly)(i));
-          elemsFams[i] = ( * LabelsPoly)(i) + 1000; // Adding 1000 because med does not like tag zero
+        // MED permits a family to belong to several groups, but each cell has
+        // only one family. Give viscous cells their own family for every
+        // material label, then include it in both the material group and the
+        // dedicated viscous_layers group.
+        std::set<mcIdType> usedFamilyIds;
+        for (std::set<long>::const_iterator label =
+                 regularCellLabels.begin();
+             label != regularCellLabels.end(); ++label)
+          usedFamilyIds.insert(static_cast<mcIdType>(*label + 1000));
+        for (std::set<long>::const_iterator label = boundaryLabels.begin();
+             label != boundaryLabels.end(); ++label)
+          usedFamilyIds.insert(static_cast<mcIdType>(
+              *label == 0 ? 2000 : *label));
+
+        mcIdType nextFamilyId = 1;
+        for (std::set<mcIdType>::const_iterator family =
+                 usedFamilyIds.begin();
+             family != usedFamilyIds.end(); ++family)
+          if (*family >= nextFamilyId)
+            nextFamilyId = *family + 1;
+        std::map<long, mcIdType> viscousFamilyIds;
+        for (std::set<long>::const_iterator label =
+                 viscousCellLabels.begin();
+             label != viscousCellLabels.end(); ++label) {
+          while (nextFamilyId == 0 ||
+                 usedFamilyIds.find(nextFamilyId) != usedFamilyIds.end())
+            ++nextFamilyId;
+          viscousFamilyIds[*label] = nextFamilyId;
+          usedFamilyIds.insert(nextFamilyId++);
         }
 
-        for (int i = CellsPoly -> N(); i < EdgesPoly -> N() + CellsPoly -> N(); i++) {
-          poly1DUniqueLabels.insert(( * LabelsPoly)(i));
-          elemsFams[i] = ( * LabelsPoly)(i);
+        for (long i = 0; i < CellsPoly->N(); ++i) {
+          const long label = (*LabelsPoly)(i);
+          elemsFams[i] =
+              withViscousGroup && i >= viscousCellStart
+                  ? viscousFamilyIds[label]
+                  : static_cast<mcIdType>(label + 1000);
+        }
+        for (long i = CellsPoly->N();
+             i < EdgesPoly->N() + CellsPoly->N(); ++i) {
+          const long label = (*LabelsPoly)(i);
+          elemsFams[i] =
+              static_cast<mcIdType>(label == 0 ? 2000 : label);
         }
 
 #ifdef DEBUG
         // Iterate through all the elements in a set and display the value.
-        for (std::set < int > ::iterator it = poly2DUniqueLabels.begin(); it != poly2DUniqueLabels.end(); ++it)
-          std::cout << " Volume tag_i " << * it << endl;
+        for (std::set<long>::const_iterator label = allCellLabels.begin();
+             label != allCellLabels.end(); ++label)
+          std::cout << " Cell tag_i " << *label << endl;
 
-        for (std::set < int > ::iterator it = poly1DUniqueLabels.begin(); it != poly1DUniqueLabels.end(); ++it)
-          std::cout << " Surface tag_i " << * it << endl;
+        for (std::set<long>::const_iterator label = boundaryLabels.begin();
+             label != boundaryLabels.end(); ++label)
+          std::cout << " Boundary tag_i " << *label << endl;
 #endif
-        std::copy(elemsFams, elemsFams + CellsPoly -> N(), fam2d -> getPointer());
-        std::copy(elemsFams + CellsPoly -> N(), elemsFams + int(EdgesPoly -> N() + CellsPoly -> N()), fam1d -> getPointer());
+        std::copy(elemsFams.begin(),
+                  elemsFams.begin() + CellsPoly->N(),
+                  fam2d->getPointer());
+        std::copy(elemsFams.begin() + CellsPoly->N(),
+                  elemsFams.end(), fam1d->getPointer());
 
         finalMeshWithLabel -> setFamilyFieldArr(-1, fam1d);
         finalMeshWithLabel -> setFamilyFieldArr(0, fam2d);
@@ -150,14 +215,35 @@ void writePolyMed(std::string const * fineName, KNM < double > * nodesPoly, KN <
         std::map < std::string, std::vector < std::string >> theGroups;
         std::map < std::string, mcIdType > theFamilies;
 
-        for (std::set < int > ::iterator it = poly2DUniqueLabels.begin(); it != poly2DUniqueLabels.end(); ++it) {
-          theFamilies["cell_family_" + to_string( * it) + ""] = * it + 1000;
-          theGroups["cell_group_" + to_string( * it) + ""].push_back("cell_family_" + to_string( * it) + "");
+        for (std::set<long>::const_iterator label =
+                 regularCellLabels.begin();
+             label != regularCellLabels.end(); ++label) {
+          const std::string familyName =
+              "cell_family_" + to_string(*label);
+          theFamilies[familyName] = *label + 1000;
+          theGroups["cell_group_" + to_string(*label)]
+              .push_back(familyName);
         }
 
-        for (std::set < int > ::iterator it = poly1DUniqueLabels.begin(); it != poly1DUniqueLabels.end(); ++it) {
-          theFamilies["boundary_family_" + to_string( * it) + ""] = * it;
-          theGroups["boundary_group_" + to_string( * it) + ""].push_back("boundary_family_" + to_string( * it) + "");
+        for (std::set<long>::const_iterator label =
+                 viscousCellLabels.begin();
+             label != viscousCellLabels.end(); ++label) {
+          const std::string familyName =
+              "viscous_layer_family_" + to_string(*label);
+          theFamilies[familyName] = viscousFamilyIds[*label];
+          theGroups["cell_group_" + to_string(*label)]
+              .push_back(familyName);
+          theGroups["viscous_layers"].push_back(familyName);
+        }
+
+        for (std::set<long>::const_iterator label = boundaryLabels.begin();
+             label != boundaryLabels.end(); ++label) {
+          const std::string familyName =
+              "boundary_family_" + to_string(*label);
+          theFamilies[familyName] =
+              static_cast<mcIdType>(*label == 0 ? 2000 : *label);
+          theGroups["boundary_group_" + to_string(*label)]
+              .push_back(familyName);
         }
 
     /*
@@ -188,17 +274,33 @@ void writePolyMed(std::string const * fineName, KNM < double > * nodesPoly, KN <
                   << "Information on cells: \n"
                   << "  # polygons " << CellsPoly -> N() << "\n"
                   << "  List of families , tags , groups  \n\n";
-        for (std::set < int > ::iterator it = poly2DUniqueLabels.begin(); it != poly2DUniqueLabels.end(); ++it) {
-          infoWrite << "    'cell_family_" + to_string( * it) + "'  has tag '" <<   * it + 1000 << "' belongs to group 'cell_group_" + to_string( * it) + "' " <<  endl;
-        }
+        for (std::set<long>::const_iterator label =
+                 regularCellLabels.begin();
+             label != regularCellLabels.end(); ++label)
+          infoWrite << "    'cell_family_" + to_string(*label)
+                    << "' has tag '" << *label + 1000
+                    << "' belongs to group 'cell_group_"
+                    << to_string(*label) << "'" << endl;
+        for (std::set<long>::const_iterator label =
+                 viscousCellLabels.begin();
+             label != viscousCellLabels.end(); ++label)
+          infoWrite << "    'viscous_layer_family_" + to_string(*label)
+                    << "' has tag '" << viscousFamilyIds[*label]
+                    << "' belongs to groups 'cell_group_"
+                    << to_string(*label) << "' and 'viscous_layers'"
+                    << endl;
 
         infoWrite << "\n\n"
                   << "Information on boundary: \n"
                   << "  # edges " << EdgesPoly -> N() << "\n"
                   << "  List of families , tags , groups  \n\n";
-        for (std::set < int > ::iterator it = poly1DUniqueLabels.begin(); it != poly1DUniqueLabels.end(); ++it) {
-          infoWrite << "    'boundary_family_" + to_string( * it) + "'  has tag '" << * it << "' belongs to group 'boundary_group_" + to_string( * it) + "' " <<endl;
-        }
+        for (std::set<long>::const_iterator label = boundaryLabels.begin();
+             label != boundaryLabels.end(); ++label)
+          infoWrite << "    'boundary_family_" + to_string(*label)
+                    << "' has tag '"
+                    << (*label == 0 ? 2000 : *label)
+                    << "' belongs to group 'boundary_group_"
+                    << to_string(*label) << "'" << endl;
 
         infoWrite.close();
 

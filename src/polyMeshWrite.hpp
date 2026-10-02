@@ -54,7 +54,7 @@ class polyMeshWrite_Op : public E_F0mps
 public:
     Expression filename			                ;
 
-    static const int n_name_param = 6		        ;
+    static const int n_name_param = 7		        ;
     static basicAC_F0::name_and_type name_param[]	;
     Expression nargs[n_name_param]			;
 
@@ -80,7 +80,8 @@ basicAC_F0::name_and_type polyMeshWrite_Op<K>::name_param[] =
     {"edges"   , &typeid(KN<KN<long>>*)},
     {"labels"  , &typeid(KN<long>*)},
     {"faces"   , &typeid(KN<KN<long>>*)},
-    {"faceLabels", &typeid(KN<long>*)}
+    {"faceLabels", &typeid(KN<long>*)},
+    {"viscousCellStart", &typeid(long)}
 };
 
 
@@ -111,6 +112,7 @@ AnyType polyMeshWrite_Op<K>::operator()(Stack stack) const
     KN<long>       *LabelsPoly= 0;
     KN<KN<long>>   *FacesPoly = 0;
     KN<long>       *FaceLabelsPoly = 0;
+    long            viscousCellStart = -1;
 
     bool withEdges = false;
     bool withLabel = false;
@@ -140,6 +142,9 @@ AnyType polyMeshWrite_Op<K>::operator()(Stack stack) const
 
     if(nargs[5])
      FaceLabelsPoly = GetAny< KN<long> * >((*nargs[5])(stack));
+
+    if(nargs[6])
+     viscousCellStart = GetAny<long>((*nargs[6])(stack));
 
     if(!nodesPoly || !CellsPoly)
       ExecError("PdmtPolyMeshWrite: nodes and cells are required");
@@ -193,7 +198,8 @@ AnyType polyMeshWrite_Op<K>::operator()(Stack stack) const
      else if(nodesPoly->M() >= 3)
        writePolySurfaceMed(inputfile,nodesPoly,CellsPoly,LabelsPoly);
      else
-       writePolyMed(inputfile,nodesPoly,CellsPoly,EdgesPoly, LabelsPoly);
+       writePolyMed(inputfile,nodesPoly,CellsPoly,EdgesPoly,LabelsPoly,
+                    viscousCellStart);
     }
 #else
     if ((fullFileName).find(".med") != std::string::npos)

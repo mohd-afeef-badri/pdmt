@@ -148,6 +148,10 @@ After installation is done you can simply launch the PDMT mesh conversion via a 
 - `--mode`: dual construction for every dimension, either `subdivided_dual` or `smooth_dual`. The defaults are `smooth_dual` for 2D/3D and `subdivided_dual` for 3S.
 - `--smooth_iterations`: number of boundary-aware dual-area (2D/3S) or dual-volume (3D) balancing passes (`0` by default).
 - `--smooth_relaxation`: strength of each 2D/3D/3S balancing pass, in `(0,1]` (`0.3` by default).
+- `--viscous-layer`: enable 2D viscous layers with `yes` (`no` by default).
+- `--viscous-layer_groups`: comma-separated Gmsh physical or MED boundary group names to layer, or `ALL`.
+- `--viscous-layer_count`: number of equal-thickness layers (`10` by default).
+- `--viscous-layer_thickness`: total wall-normal thickness in mesh coordinate units (`0.6` by default).
 
 ![image](https://github.com/mohd-afeef-badri/pdmt/assets/52162083/8ae5798d-5a4f-474d-ae39-c7207085f7bd)
 ![image](https://github.com/mohd-afeef-badri/pdmt/assets/52162083/03f0e8ae-75dd-4823-870b-4c65fab363fe)
@@ -198,6 +202,82 @@ PDMT --dimension 2 \
 ```
 
 Each pass measures the actual output polygon areas. Boundary polygons are compared directly with adjacent interior polygons, then weighted triangle centres and edge points are moved to redistribute area. Original boundary vertices remain fixed, and every weighted boundary point remains on its original primal edge. A relaxation of `0.3` applies thirty percent of the multiplicative area correction in each pass. With verbose output, PDMT reports the polygon-area coefficient of variation and mean boundary/interior area ratio before and after regularization.
+
+#### Two-dimensional viscous layers
+
+Viscous layers are currently available only for `--dimension 2`, with either
+an ASCII Gmsh 2.x/4.x `.msh` input or a `.med` input in a MED-enabled build.
+For Gmsh, select one or more one-dimensional physical names:
+
+```bash
+PDMT --dimension 2 \
+  --mesh channel.msh \
+  --mode smooth_dual \
+  --viscous-layer yes \
+  --viscous-layer_groups lower_wall,upper_wall \
+  --viscous-layer_count 10 \
+  --viscous-layer_thickness 0.6 \
+  --out_mesh channel_layered.vtu
+```
+
+For MED input, pass the MED mesh name as usual and select one or more named
+groups from its one-dimensional boundary level:
+
+```bash
+PDMT --dimension 2 \
+  --mesh channel.med \
+  --med_mesh_name TriangularMesh \
+  --mode smooth_dual \
+  --viscous-layer yes \
+  --viscous-layer_groups lower_wall,upper_wall \
+  --viscous-layer_count 10 \
+  --viscous-layer_thickness 0.6 \
+  --out_mesh channel_layered.vtu
+```
+
+The thickness is the total wall-normal distance in the coordinate units of
+the input mesh, so this example creates ten layers of thickness `0.06`.
+PDMT duplicates the selected wall, pushes the remaining dual mesh inward with
+a boundary-constrained harmonic deformation, and fills the space between the
+wall and the displaced core with conforming quadrilaterals. A selected wall
+therefore does not need one initially large adjacent element: the deformation
+can propagate across several original cell rows.
+
+At an endpoint where the selected wall meets a side boundary, the layer
+endpoints slide along that side. This keeps every layer full-width instead of
+tapering it into the corner. The side boundary is subdivided at the layer
+levels while retaining its original physical label. The construction works
+with both `smooth_dual` and `subdivided_dual`. If smoothing is requested,
+PDMT regularizes the base dual first and then inserts the layers.
+
+At a sharp cusp, or whenever a miter would overrun a short neighbouring wall
+segment, PDMT replaces the miter with a rounded cap. Circular rays are inserted
+at angular intervals of at most 15 degrees: the outer bands are structured
+quadrilaterals,
+while temporary first-band sectors are merged into the largest valid convex
+polygons. For a thickness larger than the local radius of curvature, PDMT also
+trims self-intersecting offset-front loops at every layer level. Sharp-end
+collapse groups persist across subsequent levels, and their cyclic
+correspondence is untwisted so every requested layer interface remains
+connected through the cap. If the cap passes through several small core cells,
+only that absorbed patch is repartitioned into compact convex polygons instead
+of being retained as one large non-convex cell. Ordinary dual cells remain
+untouched. This permits thick layers on strongly graded airfoil meshes without
+folded cells or re-entrant aggregate cells, and the run reports each local
+repair that was needed.
+
+When the output format is `.med`, PDMT also writes all generated layer cells
+to the cell group `viscous_layers`. Each layer family remains a member of its
+original material group, such as `cell_group_20`, so material-based selections
+continue to include both the core and the viscous layers.
+
+Use `--viscous-layer_groups ALL` to layer every populated named boundary
+group.
+The requested total thickness must still leave enough room somewhere in the
+domain for a valid deformed core. There is therefore no unlimited thickness:
+PDMT stops with an error instead of producing folded or non-manifold cells if
+different boundary components, material interfaces, or opposing layers truly
+collide and the remaining mesh cannot be compressed safely.
 
 ### 3D Polyhedral meshes
 

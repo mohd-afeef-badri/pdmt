@@ -1,0 +1,14 @@
+load "./../ext/medio-1.1/src/medio"
+
+int[int] viscousFamilies;
+int[int] materialFamilies;
+getMedLabelsOnGroup(
+    viscousFamilies, "test_med_2d_viscous.med", "viscous_layers");
+getMedLabelsOnGroup(
+    materialFamilies, "test_med_2d_viscous.med", "cell_group_20");
+
+if (viscousFamilies.n != 1) exit(451);
+if (materialFamilies.n != 2) exit(452);
+
+cout << "MED viscous_layers group and material-group membership passed"
+     << endl;
