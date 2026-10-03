@@ -145,7 +145,7 @@ After installation is done you can simply launch the PDMT mesh conversion via a 
 - `--dimension`: input mesh type (`2` by default, `3` for tetrahedra, or `3S` for a triangular surface embedded in 3D).
 - `--feature_angle`: preserve 3D boundary edges sharper than this angle (`45` degrees by default).
 - `--conserve_edge`: comma-separated Gmsh/MED edge-group names that must remain as feature-edge chains in 3D/3S output, or `ALL` to conserve every available edge group.
-- `--mode`: dual construction for every dimension, either `subdivided_dual` or `smooth_dual`. The defaults are `smooth_dual` for 2D/3D and `subdivided_dual` for 3S.
+- `--mode`: dual construction. All dimensions accept `subdivided_dual` or `smooth_dual`; 3D additionally accepts `circumcentric_dual`. The defaults are `smooth_dual` for 2D/3D and `subdivided_dual` for 3S.
 - `--smooth_iterations`: number of boundary-aware dual-area (2D/3S) or dual-volume (3D) balancing passes (`0` by default).
 - `--smooth_relaxation`: strength of each 2D/3D/3S balancing pass, in `(0,1]` (`0.3` by default).
 
@@ -213,7 +213,7 @@ PDMT --dimension 3 \
 
 The default `--feature_angle 45` keeps sharp corners while merging smooth surface regions. Use a larger value for more aggressive merging, for example`--feature_angle 80`; use a smaller value to preserve more boundary edges. Edges separating different boundary labels are always preserved.
 
-Tetrahedral 3D mode supports both dual representations. `smooth_dual` is the default and connects neighboring tetrahedron barycentres directly across ordinary internal subdivisions. `subdivided_dual` retains the intervening tetra-face barycentres and smooth boundary-edge midpoints:
+Tetrahedral 3D mode supports three dual representations. `smooth_dual` is the default and connects neighboring tetrahedron barycentres directly across ordinary internal subdivisions. `subdivided_dual` retains the intervening tetra-face barycentres and smooth boundary-edge midpoints:
 
 ```bash
 PDMT --dimension 3 \
@@ -222,11 +222,24 @@ PDMT --dimension 3 \
   --out_mesh subdivided_polyhedra.vtu
 ```
 
-In either mode, domain-boundary anchors, sharp features, region interfaces, and curves selected by `--conserve_edge` take priority and remain in the polyhedron connectivity. This keeps every polyhedron closed and conforming.
+In either barycentric mode, domain-boundary anchors, sharp features, region interfaces, and curves selected by `--conserve_edge` take priority and remain in the polyhedron connectivity. This keeps every polyhedron closed and conforming.
+
+Use `circumcentric_dual` when planar polygonal faces are required:
+
+```bash
+PDMT --dimension 3 \
+  --mesh tetrahedra.msh \
+  --mode circumcentric_dual \
+  --out_mesh circumcentric-polyhedra.vtu
+```
+
+This mode places dual points at primal-edge midpoints, triangle circumcentres, and tetrahedron circumcentres. Every internal face is therefore contained in the perpendicular-bisector plane of its corresponding primal edge. On the domain boundary, PDMT automatically separates non-coplanar input triangles; `--feature_angle` cannot merge them into a warped face in this mode.
+
+A Delaunay, preferably well-centred, tetrahedral input is strongly recommended. For a general tetrahedral mesh, circumcentres can lie outside their simplices, and the resulting dual can contain non-convex, overlapping, or degenerate cells even though its faces are planar. Volume regularization with `--smooth_iterations` is not supported for `circumcentric_dual`, because moving the circumcentres would remove the planarity guarantee.
 
 #### Boundary-aware 3D regularization
 
-Either 3D dual representation can be regularized by redistributing volume between neighbouring dual cells. Each pass measures the current polyhedral volumes. A boundary cell is compared directly with adjacent interior cells, rather than mostly with other truncated boundary cells. PDMT then moves the shared dual points inside their original primal edges, faces, and tetrahedra. The tetrahedral seed vertices themselves do not move:
+Either barycentric 3D dual representation can be regularized by redistributing volume between neighbouring dual cells. Each pass measures the current polyhedral volumes. A boundary cell is compared directly with adjacent interior cells, rather than mostly with other truncated boundary cells. PDMT then moves the shared dual points inside their original primal edges, faces, and tetrahedra. The tetrahedral seed vertices themselves do not move:
 
 ```bash
 PDMT --dimension 3 \
