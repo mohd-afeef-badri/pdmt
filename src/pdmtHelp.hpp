@@ -38,7 +38,8 @@ int PdmtHelp()
   --dimension        : Input type: 2 (default), 3, or 3S surface
   --feature_angle    : 3D/3S feature angle in degrees (default: 45)
   --conserve_edge    : Comma-separated Gmsh/MED edge-group names, or ALL
-  --mode             : Dual construction: subdivided_dual or smooth_dual
+  --mode             : Dual construction: subdivided_dual or smooth_dual;
+                         3D also accepts circumcentric_dual for planar faces
                          defaults: smooth_dual for 2D/3D, subdivided_dual for 3S
   --smooth_iterations: Boundary-aware area/volume passes in 2D/3D/3S (default: 0)
   --smooth_relaxation: 2D/3D/3S balancing relaxation in (0,1] (default: 0.3)
@@ -118,6 +119,10 @@ int PdmtHelp()
   # Retain all barycentric subdivision points in a tetrahedral dual
   PDMT --dimension 3 --mode subdivided_dual --mesh ./tetra.mesh \
        --out_mesh subdivided-polyhedra.vtu
+
+  # Build planar faces from simplex circumcentres (use a Delaunay input mesh)
+  PDMT --dimension 3 --mode circumcentric_dual --mesh ./tetra.mesh \
+       --out_mesh circumcentric-polyhedra.vtu
 
   -----------------------------------------------------------------
   3D surface meshing examples:
