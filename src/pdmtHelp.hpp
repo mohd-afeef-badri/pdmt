@@ -39,7 +39,7 @@ int PdmtHelp()
   --feature_angle    : 3D/3S feature angle in degrees (default: 45)
   --conserve_edge    : Comma-separated Gmsh/MED edge-group names, or ALL
   --mode             : Dual construction: subdivided_dual or smooth_dual;
-                         3D also accepts circumcentric_dual for planar faces
+                         2D/3D also accept circumcentric_dual
                          defaults: smooth_dual for 2D/3D, subdivided_dual for 3S
   --smooth_iterations: Boundary-aware area/volume passes in 2D/3D/3S (default: 0)
   --smooth_relaxation: 2D/3D/3S balancing relaxation in (0,1] (default: 0.3)
@@ -95,6 +95,10 @@ int PdmtHelp()
 
   # Use the subdivided 2D dual, routing dual edges through primal edge centres
   PDMT --dimension 2 --mode subdivided_dual --mesh ./in.msh --out_mesh subdivided.vtu
+
+  # Build the 2D Voronoi dual from triangle circumcentres
+  PDMT --dimension 2 --mode circumcentric_dual --mesh ./in.msh \
+       --out_mesh voronoi.vtu
 
   # Balance 2D polygon areas while preserving the primal boundary
   PDMT --dimension 2 --mode smooth_dual --mesh ./in.msh \

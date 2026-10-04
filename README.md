@@ -145,7 +145,7 @@ After installation is done you can simply launch the PDMT mesh conversion via a 
 - `--dimension`: input mesh type (`2` by default, `3` for tetrahedra, or `3S` for a triangular surface embedded in 3D).
 - `--feature_angle`: preserve 3D boundary edges sharper than this angle (`45` degrees by default).
 - `--conserve_edge`: comma-separated Gmsh/MED edge-group names that must remain as feature-edge chains in 3D/3S output, or `ALL` to conserve every available edge group.
-- `--mode`: dual construction. All dimensions accept `subdivided_dual` or `smooth_dual`; 3D additionally accepts `circumcentric_dual`. The defaults are `smooth_dual` for 2D/3D and `subdivided_dual` for 3S.
+- `--mode`: dual construction. All dimensions accept `subdivided_dual` or `smooth_dual`; 2D and 3D additionally accept `circumcentric_dual`. The defaults are `smooth_dual` for 2D/3D and `subdivided_dual` for 3S.
 - `--smooth_iterations`: number of boundary-aware dual-area (2D/3S) or dual-volume (3D) balancing passes (`0` by default).
 - `--smooth_relaxation`: strength of each 2D/3D/3S balancing pass, in `(0,1]` (`0.3` by default).
 
@@ -185,7 +185,18 @@ PDMT --dimension 2 \
 
 The two modes support the same 2D input and output formats. Use `subdivided_dual` when the dual should explicitly follow the barycentric subdivision, and `smooth_dual` when straighter, less subdivided polygon boundaries are preferred.
 
-Both modes support boundary-aware polygon-area regularization:
+Use `circumcentric_dual` to construct the 2D Voronoi dual from triangle circumcentres and boundary-edge midpoints:
+
+```bash
+PDMT --dimension 2 \
+  --mesh triangulation.msh \
+  --mode circumcentric_dual \
+  --out_mesh voronoi-polygons.vtu
+```
+
+Every shared dual edge then lies on the perpendicular bisector of its primal edge. A Delaunay, preferably well-centred, triangulation is strongly recommended: otherwise circumcentres can lie outside their triangles and the output may contain invalid or overlapping polygons. `--smooth_iterations` is not supported in this mode because area regularization would destroy the perpendicular-bisector geometry.
+
+Both barycentric modes support boundary-aware polygon-area regularization:
 
 ```bash
 PDMT --dimension 2 \
