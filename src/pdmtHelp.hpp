@@ -38,8 +38,8 @@ int PdmtHelp()
   --dimension        : Input type: 2 (default), 3, or 3S surface
   --feature_angle    : 3D/3S feature angle in degrees (default: 45)
   --conserve_edge    : Comma-separated Gmsh/MED edge-group names, or ALL
-  --mode             : Dual construction: subdivided_dual or smooth_dual;
-                         2D/3D also accept circumcentric_dual
+  --mode             : Dual construction: subdivided_dual, smooth_dual,
+                         or circumcentric_dual
                          defaults: smooth_dual for 2D/3D, subdivided_dual for 3S
   --smooth_iterations: Boundary-aware area/volume passes in 2D/3D/3S (default: 0)
   --smooth_relaxation: 2D/3D/3S balancing relaxation in (0,1] (default: 0.3)
@@ -147,6 +147,10 @@ int PdmtHelp()
   # Connect triangle barycentres directly except at protected edges
   PDMT --dimension 3S --mode smooth_dual --mesh ./surface.msh \
        --conserve_edge ridge --out_mesh smooth-polygons.vtu
+
+  # Build the piecewise-surface circumcentric dual
+  PDMT --dimension 3S --mode circumcentric_dual --mesh ./surface.msh \
+       --out_mesh circumcentric-surface.vtu
 
   # Preserve named Gmsh physical edges while merging boundary faces
   PDMT --dimension 3 --mesh ./tetra.msh --conserve_edge ridge,corner \

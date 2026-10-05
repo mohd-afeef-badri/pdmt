@@ -145,7 +145,7 @@ After installation is done you can simply launch the PDMT mesh conversion via a 
 - `--dimension`: input mesh type (`2` by default, `3` for tetrahedra, or `3S` for a triangular surface embedded in 3D).
 - `--feature_angle`: preserve 3D boundary edges sharper than this angle (`45` degrees by default).
 - `--conserve_edge`: comma-separated Gmsh/MED edge-group names that must remain as feature-edge chains in 3D/3S output, or `ALL` to conserve every available edge group.
-- `--mode`: dual construction. All dimensions accept `subdivided_dual` or `smooth_dual`; 2D and 3D additionally accept `circumcentric_dual`. The defaults are `smooth_dual` for 2D/3D and `subdivided_dual` for 3S.
+- `--mode`: dual construction: `subdivided_dual`, `smooth_dual`, or `circumcentric_dual`. The defaults are `smooth_dual` for 2D/3D and `subdivided_dual` for 3S.
 - `--smooth_iterations`: number of boundary-aware dual-area (2D/3S) or dual-volume (3D) balancing passes (`0` by default).
 - `--smooth_relaxation`: strength of each 2D/3D/3S balancing pass, in `(0,1]` (`0.3` by default).
 
@@ -341,9 +341,20 @@ PDMT --dimension 3S \
   --out_mesh smooth_surface_dual.vtu
 ```
 
-Protected geometry has priority in both modes. Boundary edges, edges selected by `--feature_angle`, region interfaces, and `--conserve_edge` curves retain their primal vertices and edge midpoints so those feature segments remain in the output connectivity.
+With `circumcentric_dual`, each triangle barycentre is replaced by its circumcentre and all primal-edge midpoints are retained:
 
-Both 3S modes also support boundary-aware surface-cell area regularization:
+```bash
+PDMT --dimension 3S \
+  --mesh surface.msh \
+  --mode circumcentric_dual \
+  --out_mesh circumcentric-surface.vtu
+```
+
+Each circumcentre-to-midpoint segment lies in its source triangle and is perpendicular to the corresponding primal edge. This follows the piecewise-triangular surface; on a folded surface, a complete dual polygon is therefore generally not contained in one plane. A well-centred surface triangulation is recommended because an obtuse triangle has its circumcentre outside the triangle. Surface-area regularization is not supported in this mode because it would destroy the perpendicular-bisector geometry.
+
+Protected geometry has priority in all three modes. Boundary edges, edges selected by `--feature_angle`, region interfaces, and `--conserve_edge` curves retain their primal vertices and edge midpoints so those feature segments remain in the output connectivity.
+
+Both barycentric 3S modes also support boundary-aware surface-cell area regularization:
 
 ```bash
 PDMT --dimension 3S \
