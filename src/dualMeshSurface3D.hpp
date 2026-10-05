@@ -2,7 +2,7 @@
 
          This file is a part of PDMT (Parallel Dual Meshing Tool)
 
-     Build a conforming barycentric dual of a triangular surface mesh
+     Build a conforming dual of a triangular surface mesh
      embedded in three dimensions.
 
 *****************************************************************************/
@@ -364,13 +364,17 @@ AnyType pdmtBuildDual3S_Op::operator()(Stack stack) const {
     ExecError("PdmtBuildDual3S: the triangular surface mesh is empty");
   if (featureAngle < 0.0 || featureAngle > 180.0)
     ExecError("PdmtBuildDual3S: featureAngle must be between 0 and 180 degrees");
-  if (mode != "subdivided_dual" && mode != "smooth_dual")
-    ExecError("PdmtBuildDual3S: mode must be subdivided_dual or smooth_dual");
+  if (mode != "subdivided_dual" && mode != "smooth_dual" &&
+      mode != "circumcentric_dual")
+    ExecError("PdmtBuildDual3S: mode must be subdivided_dual, smooth_dual, or circumcentric_dual");
   if (smoothIterations < 0)
     ExecError("PdmtBuildDual3S: smoothIterations must be non-negative");
   if (smoothRelaxation <= 0.0 || smoothRelaxation > 1.0)
     ExecError("PdmtBuildDual3S: smoothRelaxation must be in (0,1]");
   const bool smoothDual = mode == "smooth_dual";
+  const bool circumcentricDual = mode == "circumcentric_dual";
+  if (circumcentricDual && smoothIterations > 0)
+    ExecError("PdmtBuildDual3S: smoothIterations is incompatible with circumcentric_dual because area regularization destroys the perpendicular-bisector geometry");
 
   std::vector<Point> pointList;
   pointList.reserve(Th.nv + 3 * Th.nt + Th.nt);
@@ -395,9 +399,11 @@ AnyType pdmtBuildDual3S_Op::operator()(Stack stack) const {
     triangleNormals[triangle] = cross(Pdmt3D::minus(b, a), Pdmt3D::minus(c, a));
     if (norm(triangleNormals[triangle]) == 0.0)
       ExecError("PdmtBuildDual3S: degenerate input triangle");
-    const Point centre = {(a.x + b.x + c.x) / 3.0,
-                          (a.y + b.y + c.y) / 3.0,
-                          (a.z + b.z + c.z) / 3.0};
+    const Point centre = circumcentricDual
+        ? Pdmt3D::triangleCircumcenter(a, b, c)
+        : Point{(a.x + b.x + c.x) / 3.0,
+                (a.y + b.y + c.y) / 3.0,
+                (a.z + b.z + c.z) / 3.0};
     triangleCentres[triangle] = static_cast<long>(pointList.size());
     pointList.push_back(centre);
     for (int i = 0; i < 3; ++i)
