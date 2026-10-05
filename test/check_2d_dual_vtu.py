@@ -2,7 +2,7 @@
 """Topology checks for PDMT's two-dimensional polygonal VTU output."""
 
 import argparse
-from collections import Counter
+from collections import Counter, defaultdict
 import math
 from pathlib import Path
 import xml.etree.ElementTree as ET
@@ -47,6 +47,120 @@ def read_mesh(path):
 
 def edge(a, b):
     return (a, b) if a < b else (b, a)
+
+
+def read_medit_mesh(path):
+    lines = [
+        line.split("#", 1)[0].strip()
+        for line in path.read_text().splitlines()
+    ]
+    lines = [line for line in lines if line]
+
+    vertex_section = lines.index("Vertices")
+    vertex_count = int(lines[vertex_section + 1])
+    vertices = [
+        tuple(map(float, lines[vertex_section + 2 + index].split()[:2]))
+        for index in range(vertex_count)
+    ]
+
+    triangle_section = lines.index("Triangles")
+    triangle_count = int(lines[triangle_section + 1])
+    triangles = [
+        tuple(int(value) - 1 for value in
+              lines[triangle_section + 2 + index].split()[:3])
+        for index in range(triangle_count)
+    ]
+    return vertices, triangles
+
+
+def check_circumcentric_dual(path, primal_path, tolerance=2.0e-5):
+    points, cells = read_mesh(path)
+    polygons = [nodes for cell_type, nodes in cells if cell_type == VTK_POLYGON]
+    primal_vertices, triangles = read_medit_mesh(primal_path)
+    if len(polygons) != len(primal_vertices):
+        raise AssertionError(
+            f"{path}: expected one dual polygon per primal vertex"
+        )
+
+    primal_edge_count = Counter()
+    for triangle in triangles:
+        for index in range(3):
+            segment = edge(triangle[index], triangle[(index + 1) % 3])
+            primal_edge_count[segment] += 1
+    # A boundary primal edge has a truncated dual segment from its triangle
+    # circumcentre to its midpoint; it is still shared by the two endpoint
+    # cells. Therefore every primal edge must have one shared dual segment.
+    expected_adjacency = set(primal_edge_count)
+
+    dual_edge_owners = defaultdict(list)
+    for cell, polygon in enumerate(polygons):
+        for index, node in enumerate(polygon):
+            segment = edge(node, polygon[(index + 1) % len(polygon)])
+            dual_edge_owners[segment].append(cell)
+
+    shared_dual = {
+        segment: tuple(sorted(owners))
+        for segment, owners in dual_edge_owners.items()
+        if len(owners) == 2
+    }
+    owner_pairs = list(shared_dual.values())
+    if (set(owner_pairs) != expected_adjacency or
+            len(owner_pairs) != len(expected_adjacency)):
+        raise AssertionError(
+            f"{path}: shared dual edges do not match the primal adjacency"
+        )
+
+    maximum_bisector_error = 0.0
+    maximum_orthogonality_error = 0.0
+    for segment, owners in shared_dual.items():
+        first_seed = primal_vertices[owners[0]]
+        second_seed = primal_vertices[owners[1]]
+        primal_vector = (
+            second_seed[0] - first_seed[0],
+            second_seed[1] - first_seed[1],
+        )
+        primal_length = math.hypot(*primal_vector)
+        first_point = points[segment[0]][:2]
+        second_point = points[segment[1]][:2]
+        dual_vector = (
+            second_point[0] - first_point[0],
+            second_point[1] - first_point[1],
+        )
+        dual_length = math.hypot(*dual_vector)
+        if primal_length == 0.0 or dual_length == 0.0:
+            raise AssertionError(f"{path}: collapsed primal or dual edge")
+
+        orthogonality_error = abs(
+            primal_vector[0] * dual_vector[0] +
+            primal_vector[1] * dual_vector[1]
+        ) / (primal_length * dual_length)
+        maximum_orthogonality_error = max(
+            maximum_orthogonality_error, orthogonality_error
+        )
+
+        for point in (first_point, second_point):
+            first_distance2 = sum(
+                (point[axis] - first_seed[axis]) ** 2 for axis in range(2)
+            )
+            second_distance2 = sum(
+                (point[axis] - second_seed[axis]) ** 2 for axis in range(2)
+            )
+            bisector_error = abs(first_distance2 - second_distance2) / (
+                primal_length * primal_length
+            )
+            maximum_bisector_error = max(maximum_bisector_error, bisector_error)
+
+    if maximum_bisector_error > tolerance:
+        raise AssertionError(
+            f"{path}: dual vertex misses a perpendicular bisector by "
+            f"{maximum_bisector_error:.6g}"
+        )
+    if maximum_orthogonality_error > tolerance:
+        raise AssertionError(
+            f"{path}: primal/dual edge orthogonality error is "
+            f"{maximum_orthogonality_error:.6g}"
+        )
+    return maximum_bisector_error, maximum_orthogonality_error
 
 
 def check_mesh(path, expected_polygons=None, expected_boundary=None):
@@ -154,6 +268,7 @@ def main():
     parser.add_argument("--expect-boundary", type=int)
     parser.add_argument("--more-connectivity-than", type=Path)
     parser.add_argument("--regularized-from", type=Path)
+    parser.add_argument("--circumcentric-primal", type=Path)
     args = parser.parse_args()
 
     polygon_count, connectivity_count, boundary_count = check_mesh(
@@ -196,10 +311,21 @@ def main():
             f"{current_ratio:.6f}"
         )
 
+    circumcentric_message = ""
+    if args.circumcentric_primal is not None:
+        bisector_error, orthogonality_error = check_circumcentric_dual(
+            args.mesh, args.circumcentric_primal
+        )
+        circumcentric_message = (
+            f"; circumcentric bisector error {bisector_error:.3e}, "
+            f"orthogonality error {orthogonality_error:.3e}"
+        )
+
     print(
         f"{args.mesh}: {polygon_count} valid polygons, "
         f"{connectivity_count} polygon vertices, "
         f"{boundary_count} boundary segments{regularization_message}"
+        f"{circumcentric_message}"
     )
 
 

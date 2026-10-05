@@ -12,6 +12,7 @@
 #include <algorithm>
 #include <array>
 #include <cmath>
+#include <limits>
 #include <map>
 #include <set>
 #include <sstream>
@@ -106,6 +107,55 @@ inline Point scale(const Point &a, double value) {
 
 inline double norm(const Point &a) {
   return std::sqrt(dot(a, a));
+}
+
+inline bool finitePoint(const Point &point) {
+  return std::isfinite(point.x) && std::isfinite(point.y) &&
+         std::isfinite(point.z);
+}
+
+// The circumcentre of a triangle embedded in 3D.  It lies in the triangle's
+// plane and is equidistant from all three vertices.
+inline Point triangleCircumcenter(const Point &a, const Point &b,
+                                  const Point &c) {
+  const Point u = minus(b, a);
+  const Point v = minus(c, a);
+  const Point normal = cross(u, v);
+  const double denominator = 2.0 * dot(normal, normal);
+  if (denominator == 0.0)
+    ExecError("PdmtBuildDual3D: cannot construct a circumcentric dual from a degenerate triangle");
+
+  const Point offset = scale(
+      add(scale(cross(v, normal), dot(u, u)),
+          scale(cross(normal, u), dot(v, v))),
+      1.0 / denominator);
+  const Point center = add(a, offset);
+  if (!finitePoint(center))
+    ExecError("PdmtBuildDual3D: triangle circumcentre is not finite");
+  return center;
+}
+
+// Solve the three perpendicular-bisector equations relative to a.  All
+// circumcentres of tetrahedra incident to one primal edge consequently lie
+// in that edge's single bisector plane, making the merged dual face planar.
+inline Point tetraCircumcenter(const Point &a, const Point &b,
+                               const Point &c, const Point &d) {
+  const Point u = minus(b, a);
+  const Point v = minus(c, a);
+  const Point w = minus(d, a);
+  const double denominator = 2.0 * dot(u, cross(v, w));
+  if (denominator == 0.0)
+    ExecError("PdmtBuildDual3D: cannot construct a circumcentric dual from a degenerate tetrahedron");
+
+  const Point offset = scale(
+      add(add(scale(cross(v, w), dot(u, u)),
+              scale(cross(w, u), dot(v, v))),
+          scale(cross(u, v), dot(w, w))),
+      1.0 / denominator);
+  const Point center = add(a, offset);
+  if (!finitePoint(center))
+    ExecError("PdmtBuildDual3D: tetrahedron circumcentre is not finite");
+  return center;
 }
 
 inline double signedTetVolume6(const Point &a, const Point &b,
@@ -575,13 +625,18 @@ AnyType pdmtBuildDual3D_Op::operator()(Stack stack) const {
     ExecError("PdmtBuildDual3D: the tetrahedral mesh is empty");
   if (featureAngle < 0.0 || featureAngle > 180.0)
     ExecError("PdmtBuildDual3D: featureAngle must be between 0 and 180 degrees");
-  if (mode != "subdivided_dual" && mode != "smooth_dual")
-    ExecError("PdmtBuildDual3D: mode must be subdivided_dual or smooth_dual");
+  if (mode != "subdivided_dual" && mode != "smooth_dual" &&
+      mode != "circumcentric_dual")
+    ExecError("PdmtBuildDual3D: mode must be subdivided_dual, smooth_dual, or circumcentric_dual");
   if (smoothIterations < 0)
     ExecError("PdmtBuildDual3D: smoothIterations must be non-negative");
   if (smoothRelaxation <= 0.0 || smoothRelaxation > 1.0)
     ExecError("PdmtBuildDual3D: smoothRelaxation must be in (0,1]");
   const bool smoothDual = mode == "smooth_dual";
+  const bool circumcentricDual = mode == "circumcentric_dual";
+  if (circumcentricDual && smoothIterations > 0)
+    ExecError("PdmtBuildDual3D: smoothIterations is incompatible with circumcentric_dual because volume regularization destroys face planarity");
+  const bool simplifyDual = smoothDual || circumcentricDual;
 
   std::set<EdgeKey> primalEdges;
   std::set<FaceKey> primalFaces;
@@ -650,8 +705,9 @@ AnyType pdmtBuildDual3D_Op::operator()(Stack stack) const {
   for (std::set<EdgeKey>::const_iterator it = primalEdges.begin();
        it != primalEdges.end(); ++it) {
     const long vertex[2] = {(*it)[0], (*it)[1]};
-    const Point p =
-        weightedSimplexCenter(vertex, 2, pointList, cellPreference);
+    const Point p = circumcentricDual
+        ? scale(add(pointList[vertex[0]], pointList[vertex[1]]), 0.5)
+        : weightedSimplexCenter(vertex, 2, pointList, cellPreference);
     edgeNodes[*it] = static_cast<long>(pointList.size());
     pointList.push_back(p);
   }
@@ -660,8 +716,10 @@ AnyType pdmtBuildDual3D_Op::operator()(Stack stack) const {
   for (std::set<FaceKey>::const_iterator it = primalFaces.begin();
        it != primalFaces.end(); ++it) {
     const long vertex[3] = {(*it)[0], (*it)[1], (*it)[2]};
-    const Point p =
-        weightedSimplexCenter(vertex, 3, pointList, cellPreference);
+    const Point p = circumcentricDual
+        ? triangleCircumcenter(pointList[vertex[0]], pointList[vertex[1]],
+                               pointList[vertex[2]])
+        : weightedSimplexCenter(vertex, 3, pointList, cellPreference);
     faceNodes[*it] = static_cast<long>(pointList.size());
     pointList.push_back(p);
   }
@@ -671,8 +729,10 @@ AnyType pdmtBuildDual3D_Op::operator()(Stack stack) const {
     long vertex[4];
     for (int i = 0; i < 4; ++i)
       vertex[i] = Th(Th[t][i]);
-    const Point p =
-        weightedSimplexCenter(vertex, 4, pointList, cellPreference);
+    const Point p = circumcentricDual
+        ? tetraCircumcenter(pointList[vertex[0]], pointList[vertex[1]],
+                            pointList[vertex[2]], pointList[vertex[3]])
+        : weightedSimplexCenter(vertex, 4, pointList, cellPreference);
     tetNodes[t] = static_cast<long>(pointList.size());
     pointList.push_back(p);
   }
@@ -696,7 +756,7 @@ AnyType pdmtBuildDual3D_Op::operator()(Stack stack) const {
   }
 
   std::vector<char> removablePoint(pointList.size(), 0);
-  if (smoothDual)
+  if (simplifyDual)
     for (std::map<FaceKey, long>::const_iterator face = faceNodes.begin();
          face != faceNodes.end(); ++face)
       if (boundaryPrimalFaces.find(face->first) == boundaryPrimalFaces.end())
@@ -727,14 +787,20 @@ AnyType pdmtBuildDual3D_Op::operator()(Stack stack) const {
         const double denominator = norm(n0) * norm(n1);
         if (denominator == 0.0)
           ExecError("PdmtBuildDual3D: degenerate boundary triangle");
-        feature = dot(n0, n1) / denominator < featureCos;
+        const double normalCosine = dot(n0, n1) / denominator;
+        // A circumcentric interior face is planar by construction.  On the
+        // domain boundary, do not undo that guarantee by merging triangles
+        // from distinct planes, regardless of the requested feature angle.
+        feature = circumcentricDual
+            ? normalCosine < 1.0 - 64.0 * std::numeric_limits<double>::epsilon()
+            : normalCosine < featureCos;
       }
     }
     if (feature) {
       const long midpoint = edgeNodes[edge->first];
       boundarySplitEdges.insert(edgeKey(edge->first[0], midpoint));
       boundarySplitEdges.insert(edgeKey(edge->first[1], midpoint));
-    } else if (smoothDual) {
+    } else if (simplifyDual) {
       removablePoint[edgeNodes[edge->first]] = 1;
     }
   }

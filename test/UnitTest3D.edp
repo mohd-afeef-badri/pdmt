@@ -174,3 +174,25 @@ PdmtPolyMeshWrite("offcenter_regularized.vtu",
     labels=regularizedLabels, faceLabels=regularizedFaceLabels);
 
 cout << "PDMT 3D dual-volume regularization test passed" << endl;
+
+// The circumcentric dual uses simplex circumcentres.  Every interface dual to
+// a primal edge therefore lies in that edge's perpendicular-bisector plane.
+mesh3 CircumcentricInput = readmesh3("regular_tetra.mesh3d");
+real[int,int] circumcentricNodes(0,0);
+int[int][int] circumcentricFaces, circumcentricCells;
+int[int] circumcentricLabels, circumcentricFaceLabels;
+
+int circumcentricCount = PdmtBuildDual3D(CircumcentricInput,
+    nodes=circumcentricNodes, faces=circumcentricFaces,
+    cells=circumcentricCells, labels=circumcentricLabels,
+    faceLabels=circumcentricFaceLabels, mode="circumcentric_dual");
+if (circumcentricCount != CircumcentricInput.nv ||
+    circumcentricFaces.n == 0 ||
+    circumcentricCells.n != CircumcentricInput.nv) exit(123);
+
+PdmtPolyMeshWrite("regular_tetra_circumcentric.vtu",
+    nodes=circumcentricNodes, faces=circumcentricFaces,
+    cells=circumcentricCells, labels=circumcentricLabels,
+    faceLabels=circumcentricFaceLabels);
+
+cout << "PDMT 3D circumcentric-dual test passed" << endl;

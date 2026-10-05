@@ -227,11 +227,12 @@ func int run2D (){
  string ThName      = getARGV( "--mesh" , "circle" );              // Name of the mesh
  string ThNameOut   = getARGV( "--out_mesh" , "PDMT_POLY_MESH_" ); // Name of the saved mesh
  string MedMeshName = getARGV( "--med_mesh_name" , "Mesh_1" );     // Name of the mesh
- string dualMode    = getARGV( "--mode" , "smooth_dual" );         // smooth_dual or subdivided_dual
+ string dualMode    = getARGV( "--mode" , "smooth_dual" );
  int smoothIterations = getARGV("--smooth_iterations", 0);
  real smoothRelaxation = getARGV("--smooth_relaxation", 0.3);
- if (dualMode != "smooth_dual" && dualMode != "subdivided_dual") {
-   cout << "PDMT 2D --mode must be smooth_dual or subdivided_dual" << endl;
+ if (dualMode != "smooth_dual" && dualMode != "subdivided_dual" &&
+     dualMode != "circumcentric_dual") {
+   cout << "PDMT 2D --mode must be smooth_dual, subdivided_dual, or circumcentric_dual" << endl;
    exit(1111);
  }
  if (smoothIterations < 0) {
@@ -242,7 +243,16 @@ func int run2D (){
    cout << "PDMT 2D --smooth_relaxation must be in (0,1]" << endl;
    exit(1111);
  }
- int smoothDual2D = (dualMode == "smooth_dual");
+ int circumcentricDual2D = (dualMode == "circumcentric_dual");
+ if (circumcentricDual2D && smoothIterations > 0) {
+   cout << "PDMT 2D --smooth_iterations is incompatible with "
+        << "circumcentric_dual because area regularization destroys the "
+        << "perpendicular-bisector geometry" << endl;
+   exit(1111);
+ }
+ // Both smooth_dual and circumcentric_dual connect neighbouring triangle
+ // centres directly. subdivided_dual additionally retains every edge centre.
+ int directDual2D = (dualMode != "subdivided_dual");
  mesh   Th          = loadTheMesh( ThName , MedMeshName );         // function in meshIO.edp
 
 
@@ -294,6 +304,32 @@ func int run2D (){
 //-----------------------------------------------------------------------
   V0h   ThTix = x, ThTiy = y;            // nodes at triangle centers
   V1h   ThVix = x, ThViy = y;            // nodes at vertices
+
+  // TO DO: Delegate to a function in pdmt library
+  if(circumcentricDual2D){
+    for(int t=0; t<ThNt; ++t){
+      real ax = Th(Th[t][0]).x, ay = Th(Th[t][0]).y;
+      real bx = Th(Th[t][1]).x, by = Th(Th[t][1]).y;
+      real cx = Th(Th[t][2]).x, cy = Th(Th[t][2]).y;
+      real denominator = 2.0*(ax*(by-cy) + bx*(cy-ay) + cx*(ay-by));
+      real abSquared = (ax-bx)*(ax-bx) + (ay-by)*(ay-by);
+      real bcSquared = (bx-cx)*(bx-cx) + (by-cy)*(by-cy);
+      real caSquared = (cx-ax)*(cx-ax) + (cy-ay)*(cy-ay);
+      real triangleScaleSquared = max(abSquared, max(bcSquared, caSquared));
+      if(triangleScaleSquared <= 0.0 || abs(denominator) <= 1.e-14*triangleScaleSquared){
+        cout << "PDMT 2D cannot construct a circumcentric dual from degenerate triangle "
+             << t << endl;
+        exit(1111);
+      }
+      real aSquared = ax*ax + ay*ay;
+      real bSquared = bx*bx + by*by;
+      real cSquared = cx*cx + cy*cy;
+      ThTix[][t] = (aSquared*(by-cy) + bSquared*(cy-ay) +
+                     cSquared*(ay-by))/denominator;
+      ThTiy[][t] = (aSquared*(cx-bx) + bSquared*(ax-cx) +
+                     cSquared*(bx-ax))/denominator;
+    }
+  }
 
   real[int] ThEix(ThNbe), ThEiy(ThNbe);  // nodes at boundary edge centers
   int[int]  ThEiLab(ThNbe);              // labels of edges
@@ -370,7 +406,7 @@ func int run2D (){
 
 {
   int PhNn =  ThNt  + ThNnb + ThNbe;
-  if(!smoothDual2D)
+  if(!directDual2D)
     PhNn = ThNt + ThNnb + PrimalEdgeA.n;
   int PhNp =  ThNn;
   int PhNe =  ThNbe*2;
@@ -409,7 +445,7 @@ func int run2D (){
     polynodeindex++;
   }
 
-  if(!smoothDual2D){
+  if(!directDual2D){
     polynodeindex = ThNt + ThNnb;
     for(int e=0; e<PrimalEdgeA.n; ++e){
       PhV(polynodeindex,0) = PrimalEdgeX[e];
@@ -502,7 +538,7 @@ macro orderPointsAroundVertex(V, cx, cy)
         PiNe[][v] = PiNe[][v] + 1;
         PhELabels[indexploy] = Th[k].region;
 
-        if(!smoothDual2D){
+        if(!directDual2D){
           for(int le=0; le<3; ++le){
             int ea = Th[k][le];
             int eb = Th[k][(le+1)%3];
@@ -530,7 +566,7 @@ macro orderPointsAroundVertex(V, cx, cy)
       for(int p=headvb[v]; p >=0; p=nextb[p]){
         int k = p/2;
         int edgeNodeIndex = int(ThNt + ThNnb + k);
-        if(!smoothDual2D){
+        if(!directDual2D){
           int ba = Th.be(k)[0];
           int bb = Th.be(k)[1];
           if(ba > bb){
@@ -551,7 +587,7 @@ macro orderPointsAroundVertex(V, cx, cy)
         count++;
       }
 
-      if(smoothDual2D)
+      if(directDual2D)
         pdmtConvexHull(Pix,Piy,PiIndex);
       else
         orderPointsAroundVertex(Pi, ThVix[][v], ThViy[][v]);
@@ -613,7 +649,7 @@ macro orderPointsAroundVertex(V, cx, cy)
         PiNe[][v] = PiNe[][v] + 1;
         PhELabels[indexploy] = Th[k].region;
 
-        if(!smoothDual2D){
+        if(!directDual2D){
           for(int le=0; le<3; ++le){
             int ea = Th[k][le];
             int eb = Th[k][(le+1)%3];
@@ -625,7 +661,7 @@ macro orderPointsAroundVertex(V, cx, cy)
         }
       }
 
-      if(smoothDual2D)
+      if(directDual2D)
         pdmtConvexHull(Pix,Piy,PiIndex);
       else
         orderPointsAroundVertex(Pi, ThVix[][v], ThViy[][v]);
@@ -757,7 +793,7 @@ if(smoothIterations > 0){
         (wa*Th(a).y+wb*Th(b).y+wc*Th(c).y)/weightSum;
     }
 
-    if(smoothDual2D){
+    if(directDual2D){
       for(int boundaryEdge=0; boundaryEdge<ThNbe; ++boundaryEdge){
         int a = Th.be(boundaryEdge)[0];
         int b = Th.be(boundaryEdge)[1];

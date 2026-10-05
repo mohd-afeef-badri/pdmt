@@ -38,7 +38,8 @@ int PdmtHelp()
   --dimension        : Input type: 2 (default), 3, or 3S surface
   --feature_angle    : 3D/3S feature angle in degrees (default: 45)
   --conserve_edge    : Comma-separated Gmsh/MED edge-group names, or ALL
-  --mode             : Dual construction: subdivided_dual or smooth_dual
+  --mode             : Dual construction: subdivided_dual, smooth_dual,
+                         or circumcentric_dual
                          defaults: smooth_dual for 2D/3D, subdivided_dual for 3S
   --smooth_iterations: Boundary-aware area/volume passes in 2D/3D/3S (default: 0)
   --smooth_relaxation: 2D/3D/3S balancing relaxation in (0,1] (default: 0.3)
@@ -95,6 +96,10 @@ int PdmtHelp()
   # Use the subdivided 2D dual, routing dual edges through primal edge centres
   PDMT --dimension 2 --mode subdivided_dual --mesh ./in.msh --out_mesh subdivided.vtu
 
+  # Build the 2D Voronoi dual from triangle circumcentres
+  PDMT --dimension 2 --mode circumcentric_dual --mesh ./in.msh \
+       --out_mesh voronoi.vtu
+
   # Balance 2D polygon areas while preserving the primal boundary
   PDMT --dimension 2 --mode smooth_dual --mesh ./in.msh \
        --smooth_iterations 3 --smooth_relaxation 0.3 \
@@ -119,6 +124,10 @@ int PdmtHelp()
   PDMT --dimension 3 --mode subdivided_dual --mesh ./tetra.mesh \
        --out_mesh subdivided-polyhedra.vtu
 
+  # Build planar faces from simplex circumcentres (use a Delaunay input mesh)
+  PDMT --dimension 3 --mode circumcentric_dual --mesh ./tetra.mesh \
+       --out_mesh circumcentric-polyhedra.vtu
+
   -----------------------------------------------------------------
   3D surface meshing examples:
   -----------------------------------------------------------------
@@ -138,6 +147,10 @@ int PdmtHelp()
   # Connect triangle barycentres directly except at protected edges
   PDMT --dimension 3S --mode smooth_dual --mesh ./surface.msh \
        --conserve_edge ridge --out_mesh smooth-polygons.vtu
+
+  # Build the piecewise-surface circumcentric dual
+  PDMT --dimension 3S --mode circumcentric_dual --mesh ./surface.msh \
+       --out_mesh circumcentric-surface.vtu
 
   # Preserve named Gmsh physical edges while merging boundary faces
   PDMT --dimension 3 --mesh ./tetra.msh --conserve_edge ridge,corner \

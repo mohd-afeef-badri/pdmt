@@ -17,8 +17,9 @@ maintainer-clean-local: clean-local
 	@echo ""
 	rm  -rf Makefile Makefile.in
 
-EXTRA_DIST = check_2d_dual_vtu.py check_3d_regularization.py \
-	check_3s_regularization.py open_surface.msh3d
+EXTRA_DIST = check_2d_dual_vtu.py check_3d_planarity.py check_3d_regularization.py \
+	check_3s_circumcentric.py check_3s_regularization.py open_surface.msh3d \
+	regular_pentagon.mesh regular_surface.msh3d regular_tetra.mesh3d
 
 # These tests load build-tree plugins directly and bypass run/PDMT, which
 # normally exports the MED runtime library paths. Use configure substitutions
@@ -52,16 +53,20 @@ test-2d-modes: check_2d_dual_vtu.py
 	python3 ./check_2d_dual_vtu.py test_2d_subdivided_regularized_0000.vtu --expect-polygons 15 --expect-boundary 24 --regularized-from test_2d_subdivided_square_0000.vtu
 	./../run/PDMT --dimension 2 --mesh circle --circle_mesh_size 24 --mode subdivided_dual --out_mesh test_2d_subdivided_circle.vtu > test_2d_subdivided_circle.log
 	python3 ./check_2d_dual_vtu.py test_2d_subdivided_circle_0000.vtu
+	./../run/PDMT --dimension 2 --mesh regular_pentagon.mesh --mode circumcentric_dual --out_mesh test_2d_circumcentric.vtu > test_2d_circumcentric.log
+	python3 ./check_2d_dual_vtu.py test_2d_circumcentric_0000.vtu --expect-polygons 6 --expect-boundary 10 --circumcentric-primal regular_pentagon.mesh
 
-test-3d: UnitTest3D.edp single_tetra.mesh3d offcenter_cube.mesh3d
+test-3d: UnitTest3D.edp single_tetra.mesh3d offcenter_cube.mesh3d regular_tetra.mesh3d
 	$(MED_TEST_ENV) $(FFMPI) -np 1 UnitTest3D.edp -v 0 -nw > UnitTest3D.log
 	python3 ./check_3d_regularization.py offcenter_unsmoothed_0000.vtu offcenter_regularized_0000.vtu
+	python3 ./check_3d_planarity.py regular_tetra_circumcentric_0000.vtu
 
 test-conserve-edge: UnitTestConserveEdge.edp physical_edge.msh3d
 	$(MED_TEST_ENV) $(FFMPI) -np 1 UnitTestConserveEdge.edp -v 0 -nw > UnitTestConserveEdge.log
 
-test-3s: UnitTest3S.edp folded_surface_edge.msh3d closed_surface.msh3d open_surface.msh3d
+test-3s: UnitTest3S.edp folded_surface_edge.msh3d closed_surface.msh3d open_surface.msh3d regular_surface.msh3d
 	$(MED_TEST_ENV) $(FFMPI) -np 1 UnitTest3S.edp -v 0 -nw > UnitTest3S.log
+	python3 ./check_3s_circumcentric.py regular_surface.msh3d regular_surface_circumcentric_0000.vtu
 	python3 ./check_3s_regularization.py open_surface_smooth_0000.vtu open_surface_smooth_regularized_0000.vtu
 	python3 ./check_3s_regularization.py open_surface_subdivided_0000.vtu open_surface_subdivided_regularized_0000.vtu
 	python3 ./check_3s_regularization.py open_surface_feature_0000.vtu open_surface_feature_regularized_0000.vtu

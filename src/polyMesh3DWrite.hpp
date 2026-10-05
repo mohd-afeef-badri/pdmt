@@ -11,6 +11,7 @@
 
 #include <cstdlib>
 #include <fstream>
+#include <iomanip>
 #include <set>
 #include <string>
 #include <vector>
@@ -126,6 +127,7 @@ inline void writePolyVtu3D(const std::string *fileName, KNM<double> *nodes,
   std::ofstream out(fileName->c_str());
   if (!out)
     ExecError("PdmtPolyMeshWrite: cannot open the requested VTU file");
+  out << std::setprecision(17);
 
   out << "<VTKFile type=\"UnstructuredGrid\" version=\"1.0\" byte_order=\"LittleEndian\" header_type=\"UInt64\">\n"
       << "  <UnstructuredGrid>\n";
@@ -206,6 +208,7 @@ inline void writePolyVtk3D(const std::string *fileName, KNM<double> *nodes,
   std::ofstream out(fileName->c_str());
   if (!out)
     ExecError("PdmtPolyMeshWrite: cannot open the requested VTK file");
+  out << std::setprecision(17);
 
   out << "# vtk DataFile Version 2.0\nPDMT 3D polyhedral mesh\nASCII\nDATASET UNSTRUCTURED_GRID\n\n"
       << "FIELD FieldData " << (faceLabels ? 3 : 2) << "\n";
