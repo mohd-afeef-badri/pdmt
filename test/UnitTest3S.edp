@@ -85,6 +85,24 @@ if (closedCount != 4 || closedSmoothNodes.n != 4) exit(308);
 for (int cell = 0; cell < closedSmoothCells.n; ++cell)
   if (closedSmoothCells[cell].n != 3) exit(309);
 
+// circumcentric_dual keeps edge midpoints so each centre-to-midpoint segment
+// lies in its source triangle and bisects the corresponding primal edge.
+meshS CircumcentricSurface = gmshloadS("regular_surface.msh3d");
+real[int,int] circumcentricNodes(0,0);
+int[int][int] circumcentricCells;
+int[int] circumcentricLabels;
+int circumcentricCount = PdmtBuildDual3S(CircumcentricSurface,
+    nodes=circumcentricNodes, cells=circumcentricCells,
+    labels=circumcentricLabels, featureAngle=180.0,
+    mode="circumcentric_dual");
+if (circumcentricCount != 4 || circumcentricCells.n != 4 ||
+    circumcentricNodes.n != 10) exit(314);
+for (int cell = 0; cell < circumcentricCells.n; ++cell)
+  if (circumcentricCells[cell].n != 6) exit(315);
+PdmtPolyMeshWrite("regular_surface_circumcentric.vtu",
+    nodes=circumcentricNodes, cells=circumcentricCells,
+    labels=circumcentricLabels);
+
 // Surface-area regularization must work for both dual modes. The open
 // fixture has four truncated boundary stars around one interior seed.
 meshS Open = gmshloadS("open_surface.msh3d");
@@ -155,5 +173,16 @@ PdmtPolyMeshWrite("folded_surface_poly.vtu",
     nodes=conservedNodes, cells=conservedCells, labels=conservedLabels);
 PdmtPolyMeshWrite("folded_surface_poly.vtk",
     nodes=conservedNodes, cells=conservedCells, labels=conservedLabels);
+
+// Named feature curves must also split circumcentric polygon fans.
+real[int,int] circumcentricConservedNodes(0,0);
+int[int][int] circumcentricConservedCells;
+int[int] circumcentricConservedLabels;
+int circumcentricConservedCount = PdmtBuildDual3S(Th,
+    nodes=circumcentricConservedNodes, cells=circumcentricConservedCells,
+    labels=circumcentricConservedLabels, featureAngle=180.0,
+    meshFile=inputMesh, conserveEdge="bla", mode="circumcentric_dual");
+if (circumcentricConservedCount != 6 ||
+    circumcentricConservedCells.n != 6) exit(316);
 
 cout << "PDMT 3S surface dual test passed" << endl;
