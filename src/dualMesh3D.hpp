@@ -2,7 +2,7 @@
 
          This file is a part of PDMT (Parallel Dual Meshing Tool)
 
-     Build a conforming barycentric dual of a tetrahedral FreeFEM mesh.
+             Build a conforming dual of a tetrahedral mesh.
 
 *****************************************************************************/
 
@@ -369,10 +369,650 @@ inline Point polygonAreaVector(const std::vector<long> &polygon,
   return area;
 }
 
+inline double squaredDistance(const Point &a, const Point &b) {
+  const Point difference = minus(a, b);
+  return dot(difference, difference);
+}
+
+inline double pointCoordinate(const Point &point, int axis) {
+  if (axis == 0)
+    return point.x;
+  if (axis == 1)
+    return point.y;
+  return point.z;
+}
+
+class PointKdTree {
+  struct Node {
+    long point;
+    long left;
+    long right;
+    int axis;
+  };
+
+  const std::vector<Point> &points_;
+  std::vector<long> order_;
+  std::vector<Node> nodes_;
+  long root_;
+
+  struct CoordinateLess {
+    const std::vector<Point> &points;
+    int axis;
+    CoordinateLess(const std::vector<Point> &inputPoints, int inputAxis)
+        : points(inputPoints), axis(inputAxis) {}
+    bool operator()(long first, long second) const {
+      return pointCoordinate(points[first], axis) <
+             pointCoordinate(points[second], axis);
+    }
+  };
+
+  long build(long begin, long end, int depth) {
+    if (begin >= end)
+      return -1;
+    const int axis = depth % 3;
+    const long middle = begin + (end - begin) / 2;
+    std::nth_element(order_.begin() + begin, order_.begin() + middle,
+                     order_.begin() + end,
+                     CoordinateLess(points_, axis));
+    const long node = static_cast<long>(nodes_.size());
+    Node entry = {order_[middle], -1, -1, axis};
+    nodes_.push_back(entry);
+    const long left = build(begin, middle, depth + 1);
+    const long right = build(middle + 1, end, depth + 1);
+    nodes_[node].left = left;
+    nodes_[node].right = right;
+    return node;
+  }
+
+  void nearest(long node, const Point &query, long &bestPoint,
+               double &bestSquaredDistance) const {
+    if (node < 0)
+      return;
+    const Node &entry = nodes_[node];
+    const double candidateSquaredDistance =
+        squaredDistance(query, points_[entry.point]);
+    if (candidateSquaredDistance < bestSquaredDistance) {
+      bestSquaredDistance = candidateSquaredDistance;
+      bestPoint = entry.point;
+    }
+    const double difference =
+        pointCoordinate(query, entry.axis) -
+        pointCoordinate(points_[entry.point], entry.axis);
+    const long nearChild = difference <= 0.0 ? entry.left : entry.right;
+    const long farChild = difference <= 0.0 ? entry.right : entry.left;
+    nearest(nearChild, query, bestPoint, bestSquaredDistance);
+    if (difference * difference <= bestSquaredDistance)
+      nearest(farChild, query, bestPoint, bestSquaredDistance);
+  }
+
+public:
+  explicit PointKdTree(const std::vector<Point> &points)
+      : points_(points), order_(points.size()), root_(-1) {
+    for (long point = 0; point < static_cast<long>(points.size()); ++point)
+      order_[point] = point;
+    nodes_.reserve(points.size());
+    root_ = build(0, static_cast<long>(order_.size()), 0);
+  }
+
+  long nearest(const Point &query, double &bestSquaredDistance) const {
+    long bestPoint = -1;
+    bestSquaredDistance = std::numeric_limits<double>::infinity();
+    nearest(root_, query, bestPoint, bestSquaredDistance);
+    return bestPoint;
+  }
+};
+
+inline double polygonLengthScale(const std::vector<long> &polygon,
+                                 const std::vector<Point> &points) {
+  if (polygon.empty())
+    return 0.0;
+  Point minimum = points[polygon[0]];
+  Point maximum = minimum;
+  for (std::vector<long>::const_iterator vertex = polygon.begin() + 1;
+       vertex != polygon.end(); ++vertex) {
+    const Point &point = points[*vertex];
+    minimum.x = std::min(minimum.x, point.x);
+    minimum.y = std::min(minimum.y, point.y);
+    minimum.z = std::min(minimum.z, point.z);
+    maximum.x = std::max(maximum.x, point.x);
+    maximum.y = std::max(maximum.y, point.y);
+    maximum.z = std::max(maximum.z, point.z);
+  }
+  return norm(minus(maximum, minimum));
+}
+
+// A right primal triangle has its circumcentre on an edge midpoint.  The two
+// points have different topological ids, but retaining both creates a
+// zero-length polygon edge that MEDCoupling reports as overlapping.  Collapse
+// only consecutive coincident points; this does not change the face boundary.
+inline void removeConsecutiveCoincidentPoints(
+    std::vector<long> &polygon, const std::vector<Point> &points) {
+  if (polygon.size() <= 1)
+    return;
+  const double scale = polygonLengthScale(polygon, points);
+  const double tolerance = std::max(
+      scale * 1.e-12, 64.0 * std::numeric_limits<double>::epsilon());
+  const double toleranceSquared = tolerance * tolerance;
+  bool changed = true;
+  while (changed && polygon.size() > 1) {
+    changed = false;
+    for (long vertex = 0; vertex < static_cast<long>(polygon.size()); ++vertex) {
+      const long next = (vertex + 1) % polygon.size();
+      if (vertex != next &&
+          squaredDistance(points[polygon[vertex]], points[polygon[next]]) <=
+          toleranceSquared) {
+        polygon.erase(polygon.begin() + next);
+        changed = true;
+        break;
+      }
+    }
+  }
+}
+
+struct Point2D {
+  double x, y;
+};
+
+inline Point2D projectPoint(const Point &point, int droppedCoordinate) {
+  Point2D projected;
+  if (droppedCoordinate == 0) {
+    projected.x = point.y;
+    projected.y = point.z;
+  } else if (droppedCoordinate == 1) {
+    projected.x = point.x;
+    projected.y = point.z;
+  } else {
+    projected.x = point.x;
+    projected.y = point.y;
+  }
+  return projected;
+}
+
+inline double orientation2D(const Point2D &a, const Point2D &b,
+                            const Point2D &c) {
+  return (b.x - a.x) * (c.y - a.y) -
+         (b.y - a.y) * (c.x - a.x);
+}
+
+inline bool pointOnSegment2D(const Point2D &point, const Point2D &a,
+                             const Point2D &b, double lengthTolerance,
+                             double areaTolerance) {
+  if (std::abs(orientation2D(a, b, point)) > areaTolerance)
+    return false;
+  return point.x >= std::min(a.x, b.x) - lengthTolerance &&
+         point.x <= std::max(a.x, b.x) + lengthTolerance &&
+         point.y >= std::min(a.y, b.y) - lengthTolerance &&
+         point.y <= std::max(a.y, b.y) + lengthTolerance;
+}
+
+inline int orientationSign(double value, double tolerance) {
+  if (value > tolerance)
+    return 1;
+  if (value < -tolerance)
+    return -1;
+  return 0;
+}
+
+// Circumcentres may lie outside non-well-centred tetrahedra.  The topological
+// boundary of a merged triangle fan can then cross itself even though all its
+// vertices are coplanar.  Detect those rings before emitting a POLYGON cell.
+inline bool polygonHasSelfIntersection(
+    const std::vector<long> &polygon, const std::vector<Point> &points,
+    const Point &planeNormal) {
+  if (polygon.size() <= 3)
+    return false;
+
+  const double scale = polygonLengthScale(polygon, points);
+  if (scale == 0.0)
+    return true;
+  const double lengthTolerance = scale * 1.e-12;
+  const double areaTolerance = scale * scale * 1.e-12;
+
+  const double normalComponent[3] = {
+      std::abs(planeNormal.x), std::abs(planeNormal.y),
+      std::abs(planeNormal.z)};
+  int droppedCoordinate = 0;
+  if (normalComponent[1] > normalComponent[droppedCoordinate])
+    droppedCoordinate = 1;
+  if (normalComponent[2] > normalComponent[droppedCoordinate])
+    droppedCoordinate = 2;
+  if (normalComponent[droppedCoordinate] <= areaTolerance)
+    return true;
+
+  std::vector<Point2D> projected;
+  projected.reserve(polygon.size());
+  for (std::vector<long>::const_iterator vertex = polygon.begin();
+       vertex != polygon.end(); ++vertex)
+    projected.push_back(projectPoint(points[*vertex], droppedCoordinate));
+
+  const long edgeCount = static_cast<long>(projected.size());
+  for (long first = 0; first < edgeCount; ++first) {
+    const long firstNext = (first + 1) % edgeCount;
+    const Point2D &a = projected[first];
+    const Point2D &b = projected[firstNext];
+    const double edgeDx = b.x - a.x;
+    const double edgeDy = b.y - a.y;
+    if (edgeDx * edgeDx + edgeDy * edgeDy <=
+        lengthTolerance * lengthTolerance)
+      return true;
+
+    // Adjacent collinear edges which reverse direction overlap in their
+    // interiors.  Ordinary straight-through collinear vertices are valid.
+    const long previous = (first + edgeCount - 1) % edgeCount;
+    const Point2D &p = projected[previous];
+    if (std::abs(orientation2D(p, a, b)) <= areaTolerance) {
+      const double incomingX = a.x - p.x;
+      const double incomingY = a.y - p.y;
+      if (incomingX * edgeDx + incomingY * edgeDy <
+          -lengthTolerance * lengthTolerance)
+        return true;
+    }
+
+    for (long second = first + 1; second < edgeCount; ++second) {
+      const long secondNext = (second + 1) % edgeCount;
+      if (second == firstNext || secondNext == first)
+        continue;
+      const Point2D &c = projected[second];
+      const Point2D &d = projected[secondNext];
+      const double abc = orientation2D(a, b, c);
+      const double abd = orientation2D(a, b, d);
+      const double cda = orientation2D(c, d, a);
+      const double cdb = orientation2D(c, d, b);
+      const int abcSign = orientationSign(abc, areaTolerance);
+      const int abdSign = orientationSign(abd, areaTolerance);
+      const int cdaSign = orientationSign(cda, areaTolerance);
+      const int cdbSign = orientationSign(cdb, areaTolerance);
+      if ((abcSign * abdSign < 0 && cdaSign * cdbSign < 0) ||
+          (abcSign == 0 && pointOnSegment2D(c, a, b, lengthTolerance,
+                                            areaTolerance)) ||
+          (abdSign == 0 && pointOnSegment2D(d, a, b, lengthTolerance,
+                                            areaTolerance)) ||
+          (cdaSign == 0 && pointOnSegment2D(a, c, d, lengthTolerance,
+                                            areaTolerance)) ||
+          (cdbSign == 0 && pointOnSegment2D(b, c, d, lengthTolerance,
+                                            areaTolerance)))
+        return true;
+    }
+  }
+  return false;
+}
+
+inline bool polygonIsPlanar(const std::vector<long> &polygon,
+                            const std::vector<Point> &points,
+                            const Point &planeNormal) {
+  if (polygon.size() <= 3)
+    return true;
+  const double normalLength = norm(planeNormal);
+  const double scale = polygonLengthScale(polygon, points);
+  if (normalLength == 0.0 || scale == 0.0)
+    return false;
+  const Point &origin = points[polygon[0]];
+  // Boundary-patch vertices can be assembled through different tetrahedra.
+  // Their absolute plane residual stays near roundoff, but normalizing by a
+  // very small clipped face can amplify it.  This tolerance still limits the
+  // normalized warp to 1e-8; visibly warped or crossed polygons remain
+  // rejected, and internal bisector faces are normally many orders tighter.
+  const double tolerance = scale * 1.e-8;
+  for (std::vector<long>::const_iterator vertex = polygon.begin() + 1;
+       vertex != polygon.end(); ++vertex)
+    if (std::abs(dot(minus(points[*vertex], origin), planeNormal)) /
+            normalLength >
+        tolerance)
+      return false;
+  return true;
+}
+
+inline Point polygonPlaneNormal(const std::vector<long> &polygon,
+                                const std::vector<Point> &points) {
+  Point best = {0.0, 0.0, 0.0};
+  double bestSquaredLength = 0.0;
+  if (polygon.size() < 3)
+    return best;
+  const Point &origin = points[polygon[0]];
+  for (long first = 1; first + 1 < static_cast<long>(polygon.size()); ++first)
+    for (long second = first + 1;
+         second < static_cast<long>(polygon.size()); ++second) {
+      const Point candidate = cross(
+          minus(points[polygon[first]], origin),
+          minus(points[polygon[second]], origin));
+      const double squaredLength = dot(candidate, candidate);
+      if (squaredLength > bestSquaredLength) {
+        bestSquaredLength = squaredLength;
+        best = candidate;
+      }
+    }
+  return best;
+}
+
+struct RestrictedFace {
+  std::vector<long> vertices;
+  // kind == 0: a face inherited from the primal tetrahedron.
+  // kind == 1: a cap on the bisector with neighbourSeed.
+  // kind == 2: an artificial bounding-box face.
+  int kind;
+  FaceKey primalFace;
+  long neighbourSeed;
+};
+
+struct RestrictedPolyhedron {
+  std::vector<Point> points;
+  std::vector<RestrictedFace> faces;
+};
+
+inline RestrictedPolyhedron makeRestrictedBoundingBox(
+    const Point &minimum, const Point &maximum) {
+  RestrictedPolyhedron result;
+  const Point corners[8] = {
+      {minimum.x, minimum.y, minimum.z},
+      {maximum.x, minimum.y, minimum.z},
+      {maximum.x, maximum.y, minimum.z},
+      {minimum.x, maximum.y, minimum.z},
+      {minimum.x, minimum.y, maximum.z},
+      {maximum.x, minimum.y, maximum.z},
+      {maximum.x, maximum.y, maximum.z},
+      {minimum.x, maximum.y, maximum.z}};
+  for (int corner = 0; corner < 8; ++corner)
+    result.points.push_back(corners[corner]);
+  static const int boxFaces[6][4] = {
+      {0, 3, 2, 1}, {4, 5, 6, 7}, {0, 1, 5, 4},
+      {1, 2, 6, 5}, {2, 3, 7, 6}, {3, 0, 4, 7}};
+  for (int side = 0; side < 6; ++side) {
+    RestrictedFace face;
+    face.kind = 2;
+    face.primalFace = FaceKey{{-1, -1, -1}};
+    face.neighbourSeed = -1;
+    for (int vertex = 0; vertex < 4; ++vertex)
+      face.vertices.push_back(boxFaces[side][vertex]);
+    result.faces.push_back(face);
+  }
+  return result;
+}
+
+inline void removeRepeatedPolygonVertices(std::vector<long> &polygon) {
+  if (polygon.empty())
+    return;
+  std::vector<long> cleaned;
+  cleaned.reserve(polygon.size());
+  for (std::vector<long>::const_iterator vertex = polygon.begin();
+       vertex != polygon.end(); ++vertex)
+    if (cleaned.empty() || cleaned.back() != *vertex)
+      cleaned.push_back(*vertex);
+  if (cleaned.size() > 1 && cleaned.front() == cleaned.back())
+    cleaned.pop_back();
+  polygon.swap(cleaned);
+}
+
+inline void orderCapPolygon(std::vector<long> &polygon,
+                            const std::vector<Point> &points,
+                            const Point &outwardNormal) {
+  Point centroid = {0.0, 0.0, 0.0};
+  for (std::vector<long>::const_iterator vertex = polygon.begin();
+       vertex != polygon.end(); ++vertex)
+    centroid = add(centroid, points[*vertex]);
+  centroid = scale(centroid, 1.0 / polygon.size());
+
+  Point firstAxis = minus(points[polygon[0]], centroid);
+  double firstLength = norm(firstAxis);
+  for (long vertex = 1;
+       firstLength == 0.0 && vertex < static_cast<long>(polygon.size());
+       ++vertex) {
+    firstAxis = minus(points[polygon[vertex]], centroid);
+    firstLength = norm(firstAxis);
+  }
+  if (firstLength == 0.0)
+    return;
+  firstAxis = scale(firstAxis, 1.0 / firstLength);
+  Point secondAxis = cross(outwardNormal, firstAxis);
+  const double secondLength = norm(secondAxis);
+  if (secondLength == 0.0)
+    return;
+  secondAxis = scale(secondAxis, 1.0 / secondLength);
+
+  std::vector<std::pair<double, long> > angular;
+  angular.reserve(polygon.size());
+  for (std::vector<long>::const_iterator vertex = polygon.begin();
+       vertex != polygon.end(); ++vertex) {
+    const Point radius = minus(points[*vertex], centroid);
+    angular.push_back(std::make_pair(
+        std::atan2(dot(radius, secondAxis), dot(radius, firstAxis)),
+        *vertex));
+  }
+  std::sort(angular.begin(), angular.end());
+  for (long vertex = 0; vertex < static_cast<long>(polygon.size()); ++vertex)
+    polygon[vertex] = angular[vertex].second;
+  if (dot(polygonAreaVector(polygon, points), outwardNormal) < 0.0)
+    std::reverse(polygon.begin(), polygon.end());
+}
+
+inline void clipRestrictedPolyhedron(RestrictedPolyhedron &polyhedron,
+                                     const Point &normal,
+                                     double offset,
+                                     long neighbourSeed,
+                                     double tolerance,
+                                     const FaceKey *primalFace = 0) {
+  std::vector<double> signedDistance(polyhedron.points.size());
+  for (long vertex = 0;
+       vertex < static_cast<long>(polyhedron.points.size()); ++vertex)
+    signedDistance[vertex] =
+        dot(polyhedron.points[vertex], normal) - offset;
+
+  std::map<EdgeKey, long> intersectionVertex;
+  std::vector<long> capVertices;
+  std::vector<RestrictedFace> clippedFaces;
+  for (std::vector<RestrictedFace>::const_iterator oldFace =
+           polyhedron.faces.begin();
+       oldFace != polyhedron.faces.end(); ++oldFace) {
+    RestrictedFace clipped = *oldFace;
+    clipped.vertices.clear();
+    const long count = static_cast<long>(oldFace->vertices.size());
+    for (long edge = 0; edge < count; ++edge) {
+      const long a = oldFace->vertices[edge];
+      const long b = oldFace->vertices[(edge + 1) % count];
+      const bool aInside = signedDistance[a] <= tolerance;
+      const bool bInside = signedDistance[b] <= tolerance;
+      if (aInside)
+        clipped.vertices.push_back(a);
+      if (aInside == bInside)
+        continue;
+
+      const EdgeKey key = edgeKey(a, b);
+      std::map<EdgeKey, long>::const_iterator found =
+          intersectionVertex.find(key);
+      long intersection;
+      if (found != intersectionVertex.end()) {
+        intersection = found->second;
+      } else {
+        const double denominator = signedDistance[a] - signedDistance[b];
+        if (denominator == 0.0)
+          continue;
+        const double parameter = signedDistance[a] / denominator;
+        const Point point = add(
+            polyhedron.points[a],
+            scale(minus(polyhedron.points[b], polyhedron.points[a]),
+                  parameter));
+        intersection = static_cast<long>(polyhedron.points.size());
+        polyhedron.points.push_back(point);
+        signedDistance.push_back(0.0);
+        intersectionVertex[key] = intersection;
+      }
+      clipped.vertices.push_back(intersection);
+      capVertices.push_back(intersection);
+    }
+    removeRepeatedPolygonVertices(clipped.vertices);
+    if (clipped.vertices.size() >= 3)
+      clippedFaces.push_back(clipped);
+  }
+
+  std::sort(capVertices.begin(), capVertices.end());
+  capVertices.erase(std::unique(capVertices.begin(), capVertices.end()),
+                    capVertices.end());
+  if (capVertices.size() >= 3) {
+    orderCapPolygon(capVertices, polyhedron.points, normal);
+    RestrictedFace cap;
+    cap.vertices.swap(capVertices);
+    if (primalFace) {
+      cap.kind = 0;
+      cap.primalFace = *primalFace;
+      cap.neighbourSeed = -1;
+    } else {
+      cap.kind = 1;
+      cap.primalFace = FaceKey{{-1, -1, -1}};
+      cap.neighbourSeed = neighbourSeed;
+    }
+    clippedFaces.push_back(cap);
+  }
+  polyhedron.faces.swap(clippedFaces);
+}
+
+inline bool restrictedPolyhedronHasVolume(
+    const RestrictedPolyhedron &polyhedron, double distanceTolerance) {
+  std::set<long> usedVertices;
+  for (std::vector<RestrictedFace>::const_iterator face =
+           polyhedron.faces.begin();
+       face != polyhedron.faces.end(); ++face)
+    usedVertices.insert(face->vertices.begin(), face->vertices.end());
+  if (usedVertices.size() < 4)
+    return false;
+
+  for (std::vector<RestrictedFace>::const_iterator face =
+           polyhedron.faces.begin();
+       face != polyhedron.faces.end(); ++face) {
+    if (face->vertices.size() < 3)
+      continue;
+    const Point normal = cross(
+        minus(polyhedron.points[face->vertices[1]],
+              polyhedron.points[face->vertices[0]]),
+        minus(polyhedron.points[face->vertices[2]],
+              polyhedron.points[face->vertices[0]]));
+    const double normalLength = norm(normal);
+    if (normalLength == 0.0)
+      continue;
+    const Point &origin = polyhedron.points[face->vertices[0]];
+    for (std::set<long>::const_iterator vertex = usedVertices.begin();
+         vertex != usedVertices.end(); ++vertex)
+      if (std::abs(dot(minus(polyhedron.points[*vertex], origin), normal)) >
+          distanceTolerance * normalLength)
+        return true;
+  }
+  return false;
+}
+
+typedef std::array<long long, 3> QuantizedPointKey;
+
+inline long findOrAddRestrictedPoint(
+    const Point &point, double tolerance,
+    std::vector<Point> &points,
+    std::map<QuantizedPointKey, std::vector<long> > &buckets) {
+  QuantizedPointKey centre = {{
+      static_cast<long long>(std::floor(point.x / tolerance)),
+      static_cast<long long>(std::floor(point.y / tolerance)),
+      static_cast<long long>(std::floor(point.z / tolerance))}};
+  const double toleranceSquared = tolerance * tolerance;
+  for (int dx = -1; dx <= 1; ++dx)
+    for (int dy = -1; dy <= 1; ++dy)
+      for (int dz = -1; dz <= 1; ++dz) {
+        QuantizedPointKey key = {{
+            centre[0] + dx, centre[1] + dy, centre[2] + dz}};
+        std::map<QuantizedPointKey, std::vector<long> >::const_iterator bucket =
+            buckets.find(key);
+        if (bucket == buckets.end())
+          continue;
+        for (std::vector<long>::const_iterator candidate =
+                 bucket->second.begin();
+             candidate != bucket->second.end(); ++candidate)
+          if (squaredDistance(points[*candidate], point) <= toleranceSquared)
+            return *candidate;
+      }
+  const long id = static_cast<long>(points.size());
+  points.push_back(point);
+  buckets[centre].push_back(id);
+  return id;
+}
+
+inline bool pointLiesOnSegment(const Point &point, const Point &a,
+                               const Point &b, double tolerance) {
+  const Point direction = minus(b, a);
+  const double lengthSquared = dot(direction, direction);
+  if (lengthSquared == 0.0)
+    return false;
+  const double parameter = dot(minus(point, a), direction) / lengthSquared;
+  if (parameter < -tolerance || parameter > 1.0 + tolerance)
+    return false;
+  const Point projection = add(a, scale(direction, parameter));
+  return squaredDistance(point, projection) <=
+         tolerance * tolerance * lengthSquared;
+}
+
+inline void removeCollinearPolygonVertices(
+    std::vector<long> &polygon, const std::vector<Point> &points,
+    double tolerance) {
+  bool changed = true;
+  while (changed && polygon.size() > 3) {
+    changed = false;
+    std::vector<long> simplified;
+    simplified.reserve(polygon.size());
+    const long count = static_cast<long>(polygon.size());
+    for (long vertex = 0; vertex < count; ++vertex) {
+      const long previous = polygon[(vertex + count - 1) % count];
+      const long current = polygon[vertex];
+      const long next = polygon[(vertex + 1) % count];
+      if (pointLiesOnSegment(
+              points[current], points[previous], points[next], tolerance)) {
+        changed = true;
+        continue;
+      }
+      simplified.push_back(current);
+    }
+    if (simplified.size() < 3)
+      break;
+    polygon.swap(simplified);
+  }
+}
+
+inline bool trianglesAreCoplanar(
+    const std::array<long, 3> &first,
+    const std::array<long, 3> &second,
+    const std::vector<Point> &points) {
+  const Point firstNormal = cross(
+      minus(points[first[1]], points[first[0]]),
+      minus(points[first[2]], points[first[0]]));
+  const Point secondNormal = cross(
+      minus(points[second[1]], points[second[0]]),
+      minus(points[second[2]], points[second[0]]));
+  const double denominator = norm(firstNormal) * norm(secondNormal);
+  if (denominator == 0.0)
+    return false;
+  const double cosine = std::abs(dot(firstNormal, secondNormal)) / denominator;
+  if (cosine < 1.0 - 1.e-10)
+    return false;
+
+  double scale = 0.0;
+  for (int firstVertex = 0; firstVertex < 3; ++firstVertex)
+    for (int secondVertex = firstVertex + 1; secondVertex < 3;
+         ++secondVertex) {
+      scale = std::max(
+          scale, norm(minus(points[first[firstVertex]],
+                            points[first[secondVertex]])));
+      scale = std::max(
+          scale, norm(minus(points[second[firstVertex]],
+                            points[second[secondVertex]])));
+    }
+  if (scale == 0.0)
+    return false;
+  const double planeDistance = std::abs(dot(
+      firstNormal, minus(points[second[0]], points[first[0]]))) /
+      norm(firstNormal);
+  return planeDistance <= scale * 1.e-9;
+}
+
 inline std::vector<std::vector<long> > connectedTriangleComponents(
     const std::vector<long> &faceIds,
     const std::vector<std::array<long, 3> > &faces,
-    const std::set<EdgeKey> &splitEdges) {
+    const std::vector<Point> &points,
+    const std::set<EdgeKey> &splitEdges,
+    const std::set<EdgeKey> &forcedMergeEdges,
+    bool splitNonCoplanar,
+    bool onlyForcedMerges) {
   std::map<EdgeKey, std::vector<long> > edgeFaces;
   for (long local = 0; local < static_cast<long>(faceIds.size()); ++local) {
     const std::array<long, 3> &face = faces[faceIds[local]];
@@ -388,6 +1028,13 @@ inline std::vector<std::vector<long> > connectedTriangleComponents(
     const std::vector<long> &incident = edge->second;
     for (long i = 0; i < static_cast<long>(incident.size()); ++i)
       for (long j = i + 1; j < static_cast<long>(incident.size()); ++j) {
+        if (splitNonCoplanar &&
+            forcedMergeEdges.find(edge->first) == forcedMergeEdges.end()) {
+          if (onlyForcedMerges ||
+              !trianglesAreCoplanar(faces[faceIds[incident[i]]],
+                                    faces[faceIds[incident[j]]], points))
+            continue;
+        }
         adjacency[incident[i]].push_back(incident[j]);
         adjacency[incident[j]].push_back(incident[i]);
       }
@@ -418,7 +1065,8 @@ inline std::vector<std::vector<long> > connectedTriangleComponents(
 
 inline std::vector<long> componentBoundaryLoop(
     const std::vector<long> &component,
-    const std::vector<std::array<long, 3> > &faces) {
+    const std::vector<std::array<long, 3> > &faces,
+    long groupType, long groupFirst, long groupSecond) {
   std::map<EdgeKey, int> edgeCount;
   for (std::vector<long>::const_iterator id = component.begin(); id != component.end(); ++id) {
     const std::array<long, 3> &face = faces[*id];
@@ -433,7 +1081,13 @@ inline std::vector<long> componentBoundaryLoop(
       boundaryAdjacency[edge->first[0]].push_back(edge->first[1]);
       boundaryAdjacency[edge->first[1]].push_back(edge->first[0]);
     } else if (edge->second != 2) {
-      ExecError("PdmtBuildDual3D: non-manifold triangle fan while merging a dual face");
+      std::ostringstream message;
+      message << "PdmtBuildDual3D: non-manifold triangle fan while merging "
+              << (groupType ? "boundary cell/patch " : "cell interface ")
+              << groupFirst << "/" << groupSecond << "; edge "
+              << edge->first[0] << "-" << edge->first[1] << " has "
+              << edge->second << " incident triangles";
+      ExecError(message.str());
     }
   }
   if (boundaryAdjacency.size() < 3)
@@ -462,17 +1116,116 @@ inline std::vector<long> componentBoundaryLoop(
   return loop;
 }
 
+inline long disjointSetRoot(std::vector<long> &parent, long item) {
+  long root = item;
+  while (parent[root] != root)
+    root = parent[root];
+  while (parent[item] != item) {
+    const long next = parent[item];
+    parent[item] = root;
+    item = next;
+  }
+  return root;
+}
+
+inline void conformPolygonCellEdges(
+    const std::vector<Point> &points,
+    std::vector<std::vector<long> > &polygons,
+    const std::vector<std::vector<long> > &polygonCells) {
+  for (int iteration = 0; iteration < 8; ++iteration) {
+    std::map<EdgeKey, std::set<long> > edgeSplits;
+    for (std::vector<std::vector<long> >::const_iterator cell =
+             polygonCells.begin();
+         cell != polygonCells.end(); ++cell) {
+      std::set<long> cellVertices;
+      for (std::vector<long>::const_iterator encodedFace = cell->begin();
+           encodedFace != cell->end(); ++encodedFace) {
+        const std::vector<long> &face =
+            polygons[std::labs(*encodedFace) - 1];
+        cellVertices.insert(face.begin(), face.end());
+      }
+      for (std::vector<long>::const_iterator encodedFace = cell->begin();
+           encodedFace != cell->end(); ++encodedFace) {
+        const std::vector<long> &face =
+            polygons[std::labs(*encodedFace) - 1];
+        for (long edge = 0; edge < static_cast<long>(face.size()); ++edge) {
+          const long a = face[edge];
+          const long b = face[(edge + 1) % face.size()];
+          for (std::set<long>::const_iterator candidate =
+                   cellVertices.begin();
+               candidate != cellVertices.end(); ++candidate) {
+            if (*candidate == a || *candidate == b)
+              continue;
+            if (pointLiesOnSegment(
+                    points[*candidate], points[a], points[b], 1.e-10))
+              edgeSplits[edgeKey(a, b)].insert(*candidate);
+          }
+        }
+      }
+    }
+    if (edgeSplits.empty())
+      return;
+
+    bool inserted = false;
+    for (std::vector<std::vector<long> >::iterator face = polygons.begin();
+         face != polygons.end(); ++face) {
+      std::vector<long> conformed;
+      for (long edge = 0; edge < static_cast<long>(face->size()); ++edge) {
+        const long a = (*face)[edge];
+        const long b = (*face)[(edge + 1) % face->size()];
+        conformed.push_back(a);
+        const std::map<EdgeKey, std::set<long> >::const_iterator splits =
+            edgeSplits.find(edgeKey(a, b));
+        if (splits == edgeSplits.end())
+          continue;
+        const Point direction = minus(points[b], points[a]);
+        const double lengthSquared = dot(direction, direction);
+        std::vector<std::pair<double, long> > ordered;
+        for (std::set<long>::const_iterator candidate =
+                 splits->second.begin();
+             candidate != splits->second.end(); ++candidate) {
+          const double parameter =
+              dot(minus(points[*candidate], points[a]), direction) /
+              lengthSquared;
+          if (parameter > 1.e-10 && parameter < 1.0 - 1.e-10)
+            ordered.push_back(std::make_pair(parameter, *candidate));
+        }
+        if (ordered.empty())
+          continue;
+        std::sort(ordered.begin(), ordered.end());
+        for (std::vector<std::pair<double, long> >::const_iterator split =
+                 ordered.begin();
+             split != ordered.end(); ++split)
+          conformed.push_back(split->second);
+        inserted = true;
+      }
+      face->swap(conformed);
+    }
+    if (!inserted)
+      return;
+  }
+  ExecError("PdmtBuildDual3D: failed to conform polygon edges within a Voronoi cell");
+}
+
 inline void mergeTriangleFans(
     const std::vector<Point> &points,
     const std::vector<std::array<long, 3> > &triangles,
     const std::vector<long> &triangleLabels,
+    const std::vector<long> &trianglePatches,
     const std::vector<std::vector<long> > &triangleCells,
     const std::vector<char> &removablePoint,
     const std::set<EdgeKey> &boundarySplitEdges,
+    const std::set<EdgeKey> &forcedMergeEdges,
+    bool splitNonCoplanar,
+    bool onlyForcedMerges,
+    bool validateCircumcentricFans,
     std::vector<std::vector<long> > &polygons,
     std::vector<long> &polygonLabels,
     std::vector<std::vector<long> > &polygonCells) {
   typedef std::array<long, 3> GroupKey;
+  if (triangleLabels.size() != triangles.size() ||
+      trianglePatches.size() != triangles.size())
+    ExecError("PdmtBuildDual3D: invalid triangle face metadata");
   std::vector<std::vector<std::pair<long, int> > > uses(triangles.size());
   for (long cell = 0; cell < static_cast<long>(triangleCells.size()); ++cell)
     for (std::vector<long>::const_iterator encoded = triangleCells[cell].begin();
@@ -484,7 +1237,7 @@ inline void mergeTriangleFans(
   std::map<GroupKey, std::vector<long> > groups;
   for (long face = 0; face < static_cast<long>(triangles.size()); ++face) {
     if (uses[face].size() == 1) {
-      const GroupKey key = {{1, uses[face][0].first, triangleLabels[face]}};
+      const GroupKey key = {{1, uses[face][0].first, trianglePatches[face]}};
       groups[key].push_back(face);
     } else if (uses[face].size() == 2) {
       const long a = std::min(uses[face][0].first, uses[face][1].first);
@@ -501,11 +1254,15 @@ inline void mergeTriangleFans(
        group != groups.end(); ++group) {
     const std::set<EdgeKey> noSplitEdges;
     const std::vector<std::vector<long> > components = connectedTriangleComponents(
-        group->second, triangles,
-        group->first[0] ? boundarySplitEdges : noSplitEdges);
+        group->second, triangles, points,
+        group->first[0] ? boundarySplitEdges : noSplitEdges,
+        forcedMergeEdges,
+        splitNonCoplanar, onlyForcedMerges);
     for (std::vector<std::vector<long> >::const_iterator component = components.begin();
          component != components.end(); ++component) {
-      std::vector<long> loop = componentBoundaryLoop(*component, triangles);
+      std::vector<long> loop = componentBoundaryLoop(
+          *component, triangles, group->first[0],
+          group->first[1], group->first[2]);
       std::vector<long> simplified;
       for (std::vector<long>::const_iterator vertex = loop.begin(); vertex != loop.end(); ++vertex)
         if (!removablePoint[*vertex])
@@ -532,9 +1289,37 @@ inline void mergeTriangleFans(
       if (dot(polygonAreaVector(loop, points), desiredArea) < 0.0)
         std::reverse(loop.begin(), loop.end());
 
+      if (validateCircumcentricFans)
+        removeConsecutiveCoincidentPoints(loop, points);
+      if (validateCircumcentricFans)
+        removeCollinearPolygonVertices(loop, points, 1.e-10);
+      if (loop.size() < 3)
+        continue;
+
+      const Point geometricNormal = polygonPlaneNormal(loop, points);
+      if (validateCircumcentricFans && norm(geometricNormal) == 0.0)
+        continue;
+      const bool invalidPlanarity = validateCircumcentricFans &&
+          !polygonIsPlanar(loop, points, geometricNormal);
+      const bool invalidSimplicity = validateCircumcentricFans &&
+          polygonHasSelfIntersection(loop, points, geometricNormal);
+      if (invalidPlanarity || invalidSimplicity) {
+        std::ostringstream message;
+        message << "PdmtBuildDual3D: the circumcentric "
+                << (group->first[0] ? "domain-boundary" : "cell-interface")
+                << " face for cell " << group->first[1];
+        if (!group->first[0])
+          message << " and cell " << group->first[2];
+        message << " is not a "
+                << (invalidPlanarity ? "planar" : "simple")
+                << " Voronoi polygon (" << loop.size() << " vertices)";
+        ExecError(message.str());
+      }
+
       const long newFace = static_cast<long>(polygons.size());
       polygons.push_back(loop);
-      polygonLabels.push_back(group->first[0] ? group->first[2] : 0);
+      polygonLabels.push_back(
+          group->first[0] ? triangleLabels[component->front()] : 0);
       polygonCells[owner].push_back(newFace + 1);
       if (group->first[0] == 0)
         polygonCells[group->first[2]].push_back(-(newFace + 1));
@@ -640,7 +1425,9 @@ AnyType pdmtBuildDual3D_Op::operator()(Stack stack) const {
 
   std::set<EdgeKey> primalEdges;
   std::set<FaceKey> primalFaces;
+  std::map<FaceKey, std::vector<std::pair<long, long> > > primalFaceUses;
   std::vector<std::vector<long> > incidentTets(Th.nv);
+  std::vector<std::set<long> > primalNeighbours(Th.nv);
   std::vector<long> cellRegion(Th.nv, 0);
   std::vector<char> regionSet(Th.nv, 0);
 
@@ -659,11 +1446,40 @@ AnyType pdmtBuildDual3D_Op::operator()(Stack stack) const {
         regionSet[vertex[i]] = 1;
       }
     }
-    for (int i = 0; i < 6; ++i)
-      primalEdges.insert(edgeKey(vertex[tetEdges[i][0]], vertex[tetEdges[i][1]]));
-    for (int i = 0; i < 4; ++i)
-      primalFaces.insert(faceKey(vertex[tetFaces[i][0]], vertex[tetFaces[i][1]],
-                                 vertex[tetFaces[i][2]]));
+    for (int i = 0; i < 6; ++i) {
+      const long a = vertex[tetEdges[i][0]];
+      const long b = vertex[tetEdges[i][1]];
+      primalEdges.insert(edgeKey(a, b));
+      primalNeighbours[a].insert(b);
+      primalNeighbours[b].insert(a);
+    }
+    for (int i = 0; i < 4; ++i) {
+      const FaceKey face = faceKey(
+          vertex[tetFaces[i][0]], vertex[tetFaces[i][1]],
+          vertex[tetFaces[i][2]]);
+      primalFaces.insert(face);
+      primalFaceUses[face].push_back(std::make_pair(t, vertex[i]));
+    }
+  }
+
+  std::vector<std::vector<long> > adjacentTets(Th.nt);
+  for (std::map<FaceKey, std::vector<std::pair<long, long> > >::const_iterator
+           face = primalFaceUses.begin();
+       face != primalFaceUses.end(); ++face) {
+    if (face->second.size() == 2) {
+      const long first = face->second[0].first;
+      const long second = face->second[1].first;
+      adjacentTets[first].push_back(second);
+      adjacentTets[second].push_back(first);
+    }
+  }
+
+  std::set<FaceKey> boundaryPrimalFaces;
+  for (long boundary = 0; boundary < Th.nbe; ++boundary) {
+    const long a = Th(Th.be(boundary)[0]);
+    const long b = Th(Th.be(boundary)[1]);
+    const long c = Th(Th.be(boundary)[2]);
+    boundaryPrimalFaces.insert(faceKey(a, b, c));
   }
 
   std::set<EdgeKey> conservedPrimalEdges;
@@ -689,6 +1505,373 @@ AnyType pdmtBuildDual3D_Op::operator()(Stack stack) const {
     Point p = {Th(v).x, Th(v).y, Th(v).z};
     pointList.push_back(p);
   }
+
+  if (circumcentricDual) {
+    std::map<FaceKey, long> boundaryLabel;
+    std::vector<FaceKey> boundaryFacesById;
+    std::map<FaceKey, long> boundaryFaceId;
+    std::map<EdgeKey, std::vector<long> > boundaryFacesByEdge;
+    for (long boundary = 0; boundary < Th.nbe; ++boundary) {
+      const FaceKey face = faceKey(
+          Th(Th.be(boundary)[0]), Th(Th.be(boundary)[1]),
+          Th(Th.be(boundary)[2]));
+      boundaryLabel[face] = Th.be(boundary).lab;
+      if (boundaryFaceId.find(face) == boundaryFaceId.end()) {
+        const long id = static_cast<long>(boundaryFacesById.size());
+        boundaryFaceId[face] = id;
+        boundaryFacesById.push_back(face);
+        for (int edge = 0; edge < 3; ++edge)
+          boundaryFacesByEdge[edgeKey(
+              face[edge], face[(edge + 1) % 3])].push_back(id);
+      }
+    }
+
+    std::vector<long> boundaryParent(boundaryFacesById.size());
+    for (long face = 0;
+         face < static_cast<long>(boundaryParent.size()); ++face)
+      boundaryParent[face] = face;
+    for (std::map<EdgeKey, std::vector<long> >::const_iterator edge =
+             boundaryFacesByEdge.begin();
+         edge != boundaryFacesByEdge.end(); ++edge) {
+      if (conservedPrimalEdges.find(edge->first) !=
+          conservedPrimalEdges.end())
+        continue;
+      const std::vector<long> &incident = edge->second;
+      for (long first = 0; first < static_cast<long>(incident.size());
+           ++first)
+        for (long second = first + 1;
+             second < static_cast<long>(incident.size()); ++second) {
+          const FaceKey &firstFace = boundaryFacesById[incident[first]];
+          const FaceKey &secondFace = boundaryFacesById[incident[second]];
+          if (boundaryLabel[firstFace] != boundaryLabel[secondFace] ||
+              !trianglesAreCoplanar(
+                  firstFace, secondFace, pointList))
+            continue;
+          const long firstRoot =
+              disjointSetRoot(boundaryParent, incident[first]);
+          const long secondRoot =
+              disjointSetRoot(boundaryParent, incident[second]);
+          if (firstRoot != secondRoot)
+            boundaryParent[secondRoot] = firstRoot;
+        }
+    }
+    std::map<long, long> rootPatch;
+    std::map<FaceKey, long> boundaryPatch;
+    for (long face = 0;
+         face < static_cast<long>(boundaryFacesById.size()); ++face) {
+      const long root = disjointSetRoot(boundaryParent, face);
+      if (rootPatch.find(root) == rootPatch.end())
+        rootPatch[root] = static_cast<long>(rootPatch.size());
+      boundaryPatch[boundaryFacesById[face]] = rootPatch[root];
+    }
+
+    Point minimum = pointList[0];
+    Point maximum = pointList[0];
+    for (std::vector<Point>::const_iterator point = pointList.begin() + 1;
+         point != pointList.end(); ++point) {
+      minimum.x = std::min(minimum.x, point->x);
+      minimum.y = std::min(minimum.y, point->y);
+      minimum.z = std::min(minimum.z, point->z);
+      maximum.x = std::max(maximum.x, point->x);
+      maximum.y = std::max(maximum.y, point->y);
+      maximum.z = std::max(maximum.z, point->z);
+    }
+    const double domainScale = norm(Pdmt3D::minus(maximum, minimum));
+    if (domainScale == 0.0)
+      ExecError("PdmtBuildDual3D: the tetrahedral mesh has zero extent");
+    const double pointTolerance = std::max(
+        domainScale * 1.e-12,
+        64.0 * std::numeric_limits<double>::epsilon());
+    const double distanceTolerance = domainScale * 1.e-12;
+
+    std::vector<Point> restrictedPoints;
+    std::map<QuantizedPointKey, std::vector<long> > pointBuckets;
+    std::vector<std::array<long, 3> > restrictedTriangles;
+    std::vector<long> restrictedTriangleLabels;
+    std::vector<long> restrictedTrianglePatches;
+    std::vector<std::vector<long> > restrictedCellFaces(Th.nv);
+    std::set<std::array<long, 5> > restrictedInterfaceTriangles;
+
+    Point boxMinimum = {
+        minimum.x - domainScale, minimum.y - domainScale,
+        minimum.z - domainScale};
+    Point boxMaximum = {
+        maximum.x + domainScale, maximum.y + domainScale,
+        maximum.z + domainScale};
+    const double constraintTolerance =
+        domainScale * domainScale * 1.e-11;
+    const PointKdTree siteTree(pointList);
+
+    // A Voronoi cell of an obtuse Delaunay mesh is not necessarily contained
+    // in the tetrahedral star of its seed.  Construct the complete convex cell
+    // first, then walk through every connected tetrahedron it intersects.
+    // This avoids leaving an interior primal face as a triangular hole when a
+    // circumcentre lies outside its tetrahedron.
+    std::vector<long> visitedTet(Th.nt, -1);
+    for (long seed = 0; seed < Th.nv; ++seed) {
+      RestrictedPolyhedron globalCell =
+          makeRestrictedBoundingBox(boxMinimum, boxMaximum);
+      std::set<long> appliedConstraints;
+      for (std::set<long>::const_iterator otherIt =
+               primalNeighbours[seed].begin();
+           otherIt != primalNeighbours[seed].end(); ++otherIt) {
+        const long other = *otherIt;
+        appliedConstraints.insert(other);
+        const Point normal =
+            Pdmt3D::minus(pointList[other], pointList[seed]);
+        const double offset = 0.5 *
+            (dot(pointList[other], pointList[other]) -
+             dot(pointList[seed], pointList[seed]));
+        clipRestrictedPolyhedron(
+            globalCell, normal, offset, other,
+            norm(normal) * distanceTolerance);
+      }
+
+      // A non-Delaunay tetrahedral topology can omit sites whose bisectors
+      // actually support this geometric Voronoi cell.  A convex polyhedron
+      // satisfies every nearest-site half-space exactly when all its vertices
+      // do.  Query those vertices in a kd-tree and add the most violated
+      // missing constraint until none remains.  This keeps the construction
+      // local without an O(number-of-sites^2) all-pairs clipping pass.
+      while (true) {
+        std::set<long> usedVertices;
+        for (std::vector<RestrictedFace>::const_iterator face =
+                 globalCell.faces.begin();
+             face != globalCell.faces.end(); ++face)
+          usedVertices.insert(face->vertices.begin(), face->vertices.end());
+        long missingSite = -1;
+        double maximumViolation = constraintTolerance;
+        for (std::set<long>::const_iterator vertex = usedVertices.begin();
+             vertex != usedVertices.end(); ++vertex) {
+          const Point &candidate = globalCell.points[*vertex];
+          double nearestSquaredDistance = 0.0;
+          const long nearestSite =
+              siteTree.nearest(candidate, nearestSquaredDistance);
+          if (nearestSite == seed ||
+              appliedConstraints.find(nearestSite) !=
+                  appliedConstraints.end())
+            continue;
+          const double violation =
+              squaredDistance(candidate, pointList[seed]) -
+              nearestSquaredDistance;
+          if (violation > maximumViolation) {
+            maximumViolation = violation;
+            missingSite = nearestSite;
+          }
+        }
+        if (missingSite < 0)
+          break;
+        appliedConstraints.insert(missingSite);
+        const Point normal =
+            Pdmt3D::minus(pointList[missingSite], pointList[seed]);
+        const double offset = 0.5 *
+            (dot(pointList[missingSite], pointList[missingSite]) -
+             dot(pointList[seed], pointList[seed]));
+        clipRestrictedPolyhedron(
+            globalCell, normal, offset, missingSite,
+            norm(normal) * distanceTolerance);
+      }
+      if (!restrictedPolyhedronHasVolume(globalCell, distanceTolerance))
+        ExecError("PdmtBuildDual3D: a primal vertex has an empty Voronoi cell");
+
+      std::vector<long> work = incidentTets[seed];
+      while (!work.empty()) {
+        const long tet = work.back();
+        work.pop_back();
+        if (visitedTet[tet] == seed)
+          continue;
+        visitedTet[tet] = seed;
+
+        long vertex[4];
+        for (int local = 0; local < 4; ++local)
+          vertex[local] = Th(Th[tet][local]);
+        RestrictedPolyhedron clipped = globalCell;
+        for (int opposite = 0; opposite < 4; ++opposite) {
+          const FaceKey primalFace = faceKey(
+              vertex[tetFaces[opposite][0]],
+              vertex[tetFaces[opposite][1]],
+              vertex[tetFaces[opposite][2]]);
+          const Point &a = pointList[vertex[tetFaces[opposite][0]]];
+          const Point &b = pointList[vertex[tetFaces[opposite][1]]];
+          const Point &c = pointList[vertex[tetFaces[opposite][2]]];
+          Point normal = cross(Pdmt3D::minus(b, a),
+                               Pdmt3D::minus(c, a));
+          if (dot(normal,
+                  Pdmt3D::minus(pointList[vertex[opposite]], a)) > 0.0)
+            normal = scale(normal, -1.0);
+          clipRestrictedPolyhedron(
+              clipped, normal, dot(a, normal), -1,
+              norm(normal) * distanceTolerance, &primalFace);
+          if (clipped.faces.empty())
+            break;
+        }
+        if (!restrictedPolyhedronHasVolume(clipped, distanceTolerance))
+          continue;
+
+        for (std::vector<long>::const_iterator adjacent =
+                 adjacentTets[tet].begin();
+             adjacent != adjacentTets[tet].end(); ++adjacent)
+          if (visitedTet[*adjacent] != seed)
+            work.push_back(*adjacent);
+
+        for (std::vector<RestrictedFace>::const_iterator face =
+                 clipped.faces.begin();
+             face != clipped.faces.end(); ++face) {
+          bool boundaryFace = false;
+          long label = 0;
+          long neighbour = -1;
+          if (face->kind == 0) {
+            std::map<FaceKey, long>::const_iterator boundary =
+                boundaryLabel.find(face->primalFace);
+            if (boundary == boundaryLabel.end())
+              continue;
+            boundaryFace = true;
+            label = boundary->second;
+          } else if (face->kind == 1) {
+            neighbour = face->neighbourSeed;
+            if (seed > neighbour)
+              continue;
+          } else {
+            ExecError("PdmtBuildDual3D: the artificial Voronoi bounding box intersects the domain");
+          }
+
+          std::vector<long> globalVertices;
+          globalVertices.reserve(face->vertices.size());
+          Point faceCentroid = {0.0, 0.0, 0.0};
+          for (std::vector<long>::const_iterator localVertex =
+                   face->vertices.begin();
+               localVertex != face->vertices.end(); ++localVertex) {
+            const Point &point = clipped.points[*localVertex];
+            globalVertices.push_back(findOrAddRestrictedPoint(
+                point, pointTolerance, restrictedPoints, pointBuckets));
+            faceCentroid = add(faceCentroid, point);
+          }
+          removeRepeatedPolygonVertices(globalVertices);
+          if (globalVertices.size() < 3)
+            continue;
+          faceCentroid = scale(
+              faceCentroid, 1.0 / face->vertices.size());
+          const long centroid = findOrAddRestrictedPoint(
+              faceCentroid, pointTolerance, restrictedPoints, pointBuckets);
+
+          for (long edge = 0;
+               edge < static_cast<long>(globalVertices.size()); ++edge) {
+            const long a = globalVertices[edge];
+            const long b = globalVertices[
+                (edge + 1) % globalVertices.size()];
+            if (a == b || a == centroid || b == centroid)
+              continue;
+            const Point triangleNormal = cross(
+                Pdmt3D::minus(
+                    restrictedPoints[a], restrictedPoints[centroid]),
+                Pdmt3D::minus(
+                    restrictedPoints[b], restrictedPoints[centroid]));
+            if (norm(triangleNormal) <=
+                domainScale * domainScale * 1.e-24)
+              continue;
+            if (!boundaryFace) {
+              std::array<long, 3> triangleVertices = {{centroid, a, b}};
+              std::sort(triangleVertices.begin(), triangleVertices.end());
+              const std::array<long, 5> key = {{
+                  std::min(seed, neighbour), std::max(seed, neighbour),
+                  triangleVertices[0], triangleVertices[1],
+                  triangleVertices[2]}};
+              if (!restrictedInterfaceTriangles.insert(key).second)
+                continue;
+            }
+            const long triangle =
+                static_cast<long>(restrictedTriangles.size());
+            restrictedTriangles.push_back(
+                std::array<long, 3>{{centroid, a, b}});
+            restrictedTriangleLabels.push_back(label);
+            restrictedTrianglePatches.push_back(
+                boundaryFace ? boundaryPatch[face->primalFace] : 0);
+            restrictedCellFaces[seed].push_back(triangle + 1);
+            if (!boundaryFace)
+              restrictedCellFaces[neighbour].push_back(-(triangle + 1));
+          }
+        }
+      }
+    }
+
+    std::vector<char> noRemovablePoint(restrictedPoints.size(), 0);
+    const std::set<EdgeKey> noBoundarySplitEdges;
+    const std::set<EdgeKey> noForcedMergeEdges;
+    std::vector<std::vector<long> > polygonFaces;
+    std::vector<long> polygonFaceLabels;
+    std::vector<std::vector<long> > polygonCellFaces;
+    mergeTriangleFans(
+        restrictedPoints, restrictedTriangles, restrictedTriangleLabels,
+        restrictedTrianglePatches,
+        restrictedCellFaces, noRemovablePoint,
+        noBoundarySplitEdges, noForcedMergeEdges,
+        true, false, true,
+        polygonFaces, polygonFaceLabels, polygonCellFaces);
+    conformPolygonCellEdges(
+        restrictedPoints, polygonFaces, polygonCellFaces);
+
+    std::vector<long> oldToNew(restrictedPoints.size(), -1);
+    for (std::vector<std::vector<long> >::const_iterator face =
+             polygonFaces.begin();
+         face != polygonFaces.end(); ++face)
+      for (std::vector<long>::const_iterator vertexId = face->begin();
+           vertexId != face->end(); ++vertexId)
+        oldToNew[*vertexId] = 0;
+    std::vector<Point> compactPoints;
+    compactPoints.reserve(restrictedPoints.size());
+    for (long old = 0; old < static_cast<long>(restrictedPoints.size()); ++old)
+      if (oldToNew[old] >= 0) {
+        oldToNew[old] = static_cast<long>(compactPoints.size());
+        compactPoints.push_back(restrictedPoints[old]);
+      }
+    for (std::vector<std::vector<long> >::iterator face =
+             polygonFaces.begin();
+         face != polygonFaces.end(); ++face)
+      for (std::vector<long>::iterator vertexId = face->begin();
+           vertexId != face->end(); ++vertexId)
+        *vertexId = oldToNew[*vertexId];
+
+    nodes->resize(static_cast<long>(compactPoints.size()), 3);
+    for (long point = 0; point < static_cast<long>(compactPoints.size());
+         ++point) {
+      (*nodes)(point, 0L) = compactPoints[point].x;
+      (*nodes)(point, 1L) = compactPoints[point].y;
+      (*nodes)(point, 2L) = compactPoints[point].z;
+    }
+    faces->resize(static_cast<long>(polygonFaces.size()));
+    for (long face = 0; face < static_cast<long>(polygonFaces.size()); ++face) {
+      (*faces)[face].resize(static_cast<long>(polygonFaces[face].size()));
+      for (long vertexId = 0;
+           vertexId < static_cast<long>(polygonFaces[face].size()); ++vertexId)
+        (*faces)[face][vertexId] = polygonFaces[face][vertexId];
+    }
+    cells->resize(Th.nv);
+    for (long cell = 0; cell < Th.nv; ++cell) {
+      (*cells)[cell].resize(static_cast<long>(polygonCellFaces[cell].size()));
+      for (long face = 0;
+           face < static_cast<long>(polygonCellFaces[cell].size()); ++face)
+        (*cells)[cell][face] = polygonCellFaces[cell][face];
+    }
+    if (labels) {
+      labels->resize(Th.nv);
+      for (long cell = 0; cell < Th.nv; ++cell)
+        (*labels)[cell] = cellRegion[cell];
+    }
+    if (faceLabels) {
+      faceLabels->resize(static_cast<long>(polygonFaceLabels.size()));
+      for (long face = 0;
+           face < static_cast<long>(polygonFaceLabels.size()); ++face)
+        (*faceLabels)[face] = polygonFaceLabels[face];
+    }
+    if (verbosity)
+      std::cout << "PDMT 3D circumcentric_dual: restricted Voronoi clipping "
+                << Th.nt << " tetrahedra -> " << Th.nv
+                << " polyhedra, " << polygonFaces.size()
+                << " polygonal faces and " << compactPoints.size()
+                << " nodes" << std::endl;
+    return static_cast<long>(Th.nv);
+  }
+
   std::vector<double> cellPreference;
   double initialVolumeCv = 0.0;
   double finalVolumeCv = 0.0;
@@ -738,12 +1921,10 @@ AnyType pdmtBuildDual3D_Op::operator()(Stack stack) const {
   }
 
   std::map<FaceKey, long> boundaryTriangleLabels;
-  std::set<FaceKey> boundaryPrimalFaces;
   std::map<EdgeKey, std::vector<long> > boundaryEdgeFaces;
   for (long b = 0; b < Th.nbe; ++b) {
     long v[3] = {Th(Th.be(b)[0]), Th(Th.be(b)[1]), Th(Th.be(b)[2])};
     const FaceKey primalFace = faceKey(v[0], v[1], v[2]);
-    boundaryPrimalFaces.insert(primalFace);
     const long fc = faceNodes[primalFace];
     for (int i = 0; i < 3; ++i) {
       const long current = v[i];
@@ -816,6 +1997,8 @@ AnyType pdmtBuildDual3D_Op::operator()(Stack stack) const {
                 << "MED/Gmsh edge group" << std::endl;
   }
 
+  const std::set<EdgeKey> forcedMergeEdges;
+
   std::vector<std::array<long, 3> > globalFaces;
   std::vector<long> globalFaceLabels;
   std::map<FaceKey, long> globalFaceIds;
@@ -879,8 +2062,11 @@ AnyType pdmtBuildDual3D_Op::operator()(Stack stack) const {
   std::vector<std::vector<long> > polygonFaces;
   std::vector<long> polygonFaceLabels;
   std::vector<std::vector<long> > polygonCellFaces;
-  mergeTriangleFans(pointList, globalFaces, globalFaceLabels, cellFaceIds,
-                    removablePoint, boundarySplitEdges,
+  mergeTriangleFans(pointList, globalFaces, globalFaceLabels,
+                    globalFaceLabels, cellFaceIds,
+                    removablePoint, boundarySplitEdges, forcedMergeEdges,
+                    false, false,
+                    circumcentricDual,
                     polygonFaces, polygonFaceLabels,
                     polygonCellFaces);
   globalFaceLabels.swap(polygonFaceLabels);

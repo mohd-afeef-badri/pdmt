@@ -1,0 +1,19 @@
+load "./../src/pdmt"
+
+mesh3 Th = readmesh3("non_delaunay_pair.mesh3d");
+real[int,int] nodes(0,0);
+int[int][int] faces, cells;
+int[int] labels, faceLabels;
+
+int numberOfCells = PdmtBuildDual3D(Th,
+    nodes=nodes, faces=faces, cells=cells,
+    labels=labels, faceLabels=faceLabels,
+    mode="circumcentric_dual");
+if (numberOfCells != Th.nv || faces.n == 0 || cells.n != Th.nv)
+  exit(1);
+
+PdmtPolyMeshWrite("non_delaunay_circumcentric.vtu",
+    nodes=nodes, faces=faces, cells=cells,
+    labels=labels, faceLabels=faceLabels);
+
+cout << "PDMT 3D non-Delaunay geometric Voronoi test passed" << endl;
