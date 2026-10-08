@@ -219,7 +219,7 @@ Use `--dimension 3` and write legacy VTK (`.vtk`), XML VTK (`.vtu`), or—when P
 ```bash
 PDMT --dimension 3 \
 	--mesh /your/mesh/tetrahedra.mesh \
-  	--out_mesh polyhedra.vtu
+  --out_mesh polyhedra.vtu
 ```
 
 The default `--feature_angle 45` keeps sharp corners while merging smooth surface regions. Use a larger value for more aggressive merging, for example`--feature_angle 80`; use a smaller value to preserve more boundary edges. Edges separating different boundary labels are always preserved.
@@ -235,7 +235,7 @@ PDMT --dimension 3 \
 
 In either barycentric mode, domain-boundary anchors, sharp features, region interfaces, and curves selected by `--conserve_edge` take priority and remain in the polyhedron connectivity. This keeps every polyhedron closed and conforming.
 
-Use `circumcentric_dual` when planar polygonal faces are required:
+[EXPERIMENTAL] Use `circumcentric_dual` when planar polygonal faces are required:
 
 ```bash
 PDMT --dimension 3 \
@@ -244,9 +244,9 @@ PDMT --dimension 3 \
   --out_mesh circumcentric-polyhedra.vtu
 ```
 
-This mode places dual points at primal-edge midpoints, triangle circumcentres, and tetrahedron circumcentres. Every internal face is therefore contained in the perpendicular-bisector plane of its corresponding primal edge. On the domain boundary, PDMT automatically separates non-coplanar input triangles; `--feature_angle` cannot merge them into a warped face in this mode.
+This mode tries to constructs the geometric Voronoi cell of every tetra-mesh vertex from perpendicular-bisector half-spaces, then clips those cells to the original tetrahedral domain. Internal interfaces are therefore planar Voronoi polygons; the output contains the merged polygons themselves, not their temporary construction triangles. On the domain boundary, PDMT merges only triangles belonging to the same connected coplanar patch, so a curved skin cannot become one warped face. PDMT starts from the local tetrahedral neighbours and uses a nearest-site search to discover any additional bisectors needed by a non-Delaunay input. Final faces are checked for planarity and self-intersection, co-spherical duplicate pieces are removed, polygon edges are conformed across every cell shell, and the original domain volume is preserved. 
 
-A Delaunay, preferably well-centred, tetrahedral input is strongly recommended. For a general tetrahedral mesh, circumcentres can lie outside their simplices, and the resulting dual can contain non-convex, overlapping, or degenerate cells even though its faces are planar. Volume regularization with `--smooth_iterations` is not supported for `circumcentric_dual`, because moving the circumcentres would remove the planarity guarantee.
+> Volume regularization with `--smooth_iterations` is not supported for `circumcentric_dual` because moving Voronoi vertices would destroy the bisector geometry.
 
 #### Boundary-aware 3D regularization
 
@@ -275,9 +275,7 @@ PDMT --dimension 3 \
 
 Multiple group names are comma-separated, for example `--conserve_edge inlet_rim,outlet_rim`. Each original curve segment remains on the output boundary as a geometrically identical chain split at the dual edge midpoint.
 
-Use `--conserve_edge ALL` to retain every populated physical curve group
-in a Gmsh file, or every group on the one-dimensional edge level of a MED
-mesh:
+Use `--conserve_edge ALL` to retain every populated physical curve group in a Gmsh file, or every group on the one-dimensional edge level of a MED mesh:
 
 ```bash
 PDMT --dimension 3 \
@@ -287,7 +285,7 @@ PDMT --dimension 3 \
   --out_mesh all_curves_conserved.vtu
 ```
 
-The 3D loader accepts tetrahedral `.mesh`, `.msh`, `.vtk`, and—when PDMT is built with MED support—`.med` files. Select a non-default MED input mesh with `--med_mesh_name`. MED output uses native `NORM_POLYHED` cells and stores exterior polygonal faces at level `-1`, including boundary family labels.
+The 3D loader accepts tetrahedral `.mesh`, `.msh`, `.vtk`, and when PDMT is built with MED support `.med` files. Select a non-default MED input mesh with `--med_mesh_name`. MED output uses native `NORM_POLYHED` cells and stores exterior polygonal faces at level `-1`, including boundary family labels.
 For example:
 
 ```bash
@@ -374,8 +372,7 @@ PDMT --dimension 3S --mesh surface.med \
   --med_mesh_name TriangularMesh --out_mesh surface_dual.med
 ```
 
-For Gmsh inputs, named edge groups require an ASCII Gmsh 2.x file. For MED
-inputs, PDMT reads the groups from the one-dimensional edge level.
+For Gmsh inputs, named edge groups require an ASCII Gmsh 2.x file. For MED inputs, PDMT reads the groups from the one-dimensional edge level.
 
 The Gmsh file must contain type-2 triangle elements; exporting only the physical curves is not a surface mesh. From a `.geo` file, an ASCII 2.x surface export can be generated with:
 

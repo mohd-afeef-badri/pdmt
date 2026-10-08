@@ -124,7 +124,7 @@ int PdmtHelp()
   PDMT --dimension 3 --mode subdivided_dual --mesh ./tetra.mesh \
        --out_mesh subdivided-polyhedra.vtu
 
-  # Build planar faces from simplex circumcentres (use a Delaunay input mesh)
+  # Build domain-clipped geometric Voronoi cells with planar polygon faces
   PDMT --dimension 3 --mode circumcentric_dual --mesh ./tetra.mesh \
        --out_mesh circumcentric-polyhedra.vtu
 
