@@ -196,3 +196,24 @@ PdmtPolyMeshWrite("regular_tetra_circumcentric.vtu",
     faceLabels=circumcentricFaceLabels);
 
 cout << "PDMT 3D circumcentric-dual test passed" << endl;
+
+// An obtuse Delaunay pair whose top vertex's Voronoi cell crosses the shared
+// primal face.  This guards against restricting a cell to its tetrahedral
+// star, which leaves a triangular hole and loses volume.
+mesh3 ObtusePair = readmesh3("obtuse_delaunay_pair.mesh3d");
+real[int,int] obtuseNodes(0,0);
+int[int][int] obtuseFaces, obtuseCells;
+int[int] obtuseLabels, obtuseFaceLabels;
+
+int obtuseCount = PdmtBuildDual3D(ObtusePair,
+    nodes=obtuseNodes, faces=obtuseFaces, cells=obtuseCells,
+    labels=obtuseLabels, faceLabels=obtuseFaceLabels,
+    mode="circumcentric_dual");
+if (obtuseCount != ObtusePair.nv || obtuseFaces.n == 0 ||
+    obtuseCells.n != ObtusePair.nv) exit(124);
+
+PdmtPolyMeshWrite("obtuse_pair_circumcentric.vtu",
+    nodes=obtuseNodes, faces=obtuseFaces, cells=obtuseCells,
+    labels=obtuseLabels, faceLabels=obtuseFaceLabels);
+
+cout << "PDMT 3D obtuse circumcentric-dual test passed" << endl;
