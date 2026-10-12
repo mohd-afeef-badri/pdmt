@@ -2,11 +2,19 @@ load "./../src/pdmt"
 load "./../ext/medio-1.1/src/medio"
 load "gmsh"
 
+// Exercise native planar MED input, both default and explicit selection.
+mesh Planar = PdmtLoadMedMesh2("../msh/triangle1hole.med");
+mesh NamedPlanar = PdmtLoadMedMesh2(
+    "../msh/triangle1hole.med", meshname="Mesh_1");
+if (Planar.nv <= 0 || Planar.nt <= 0 || Planar.nbe <= 0) exit(400);
+if (Planar.nv != NamedPlanar.nv || Planar.nt != NamedPlanar.nt ||
+    Planar.nbe != NamedPlanar.nbe) exit(406);
+
 // Exercise tetrahedral MED input and native polyhedral MED output.
 mesh3 TetInput = readmesh3("single_tetra.mesh3d");
 savemedmesh(TetInput, "single_tetra_input.med");
-mesh3 Tet = PdmtLoadMedMesh3("single_tetra_input.med",
-                             meshname="TetrahedralMesh");
+// With no meshname, the first mesh stored in the MED file is selected.
+mesh3 Tet = PdmtLoadMedMesh3("single_tetra_input.med");
 if (Tet.nv != 4 || Tet.nt != 1 || Tet.nbe != 4) exit(401);
 
 real[int,int] volumeNodes(0,0);
@@ -23,8 +31,7 @@ PdmtPolyMeshWrite("single_tetra_poly.med",
 // Exercise triangular-surface MED input and polygonal-surface MED output.
 meshS SurfaceInput = gmshloadS("closed_surface.msh3d");
 savemedmesh(SurfaceInput, "closed_surface_input.med");
-meshS Surface = PdmtLoadMedMeshS("closed_surface_input.med",
-                                 meshname="TriangularMesh");
+meshS Surface = PdmtLoadMedMeshS("closed_surface_input.med");
 if (Surface.nv != 4 || Surface.nt != 4) exit(403);
 
 real[int,int] surfaceNodes(0,0);

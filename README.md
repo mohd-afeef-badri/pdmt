@@ -18,7 +18,7 @@ PDMT, acryonm for Parallel Dual Meshing Tool, is a polyhedral meshing/remsehing 
 To compile and use PDMT, you will need the following dependencies:
 
 - FreeFEM
-- MedCoupling (optional for .med mesh support)
+- MedCoupling (optional for native `.med` mesh input and output)
 
 ## Compilation
 
@@ -285,7 +285,7 @@ PDMT --dimension 3 \
   --out_mesh all_curves_conserved.vtu
 ```
 
-The 3D loader accepts tetrahedral `.mesh`, `.msh`, `.vtk`, and when PDMT is built with MED support `.med` files. Select a non-default MED input mesh with `--med_mesh_name`. MED output uses native `NORM_POLYHED` cells and stores exterior polygonal faces at level `-1`, including boundary family labels.
+The 3D loader accepts tetrahedral `.mesh`, `.msh`, `.vtk`, and when PDMT is built with MED support `.med` files. By default PDMT loads the first mesh stored in a MED file; use `--med_mesh_name` to select a specific mesh. MED output uses native `NORM_POLYHED` cells and stores exterior polygonal faces at level `-1`, including boundary family labels.
 For example:
 
 ```bash
@@ -365,7 +365,7 @@ PDMT --dimension 3S \
 
 Each pass measures the areas of the actual output polygons, including the straight connections used by `smooth_dual`, and adjusts triangle points and unprotected edge points inside their original input simplices. Original surface vertices and all boundary, feature, region-interface, and conserved edge midpoints remain fixed. When a feature edge splits the fan of one input vertex, each resulting output polygon receives its own balancing weight; this prevents a small feature-side cell from being hidden by the total area around the seed. With verbose output, PDMT reports the surface-cell area coefficient of variation and mean boundary/interior area ratio before and after regularization.
 
-The 3S loader accepts `.mesh`, `.msh`, `.vtk`, and—when MED support is enabled—`.med` triangular surfaces. It writes `.vtk`, `.vtu`, or native MED polygon cells. Use `--med_mesh_name` for the surface mesh name inside an input MED file:
+The 3S loader accepts `.mesh`, `.msh`, `.vtk`, and—when MED support is enabled—`.med` triangular surfaces. It writes `.vtk`, `.vtu`, or native MED polygon cells. The first MED mesh is loaded by default; use `--med_mesh_name` to request another surface mesh:
 
 ```bash
 PDMT --dimension 3S --mesh surface.med \
