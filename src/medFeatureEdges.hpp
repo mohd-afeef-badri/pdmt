@@ -114,9 +114,7 @@ inline std::set<EdgeKey> readMedFeatureEdges(
     const std::vector<std::string> names = GetMeshNames(fileName);
     if (names.empty())
       ExecError(std::string(context) + ": MED file contains no mesh");
-    if (names.size() > 1)
-      ExecError(std::string(context) + ": medMeshName is required for MED files with multiple meshes");
-    selectedMeshName = names[0];
+    selectedMeshName = names.front();
   }
 
   MCAuto<MEDFileUMesh> fileMesh = MEDFileUMesh::New(fileName, selectedMeshName);

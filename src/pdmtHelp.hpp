@@ -49,8 +49,8 @@ int PdmtHelp()
                        works only with '--mesh square'
   --circle_mesh_size : Provide mesh size for circle mesh
                        works only with '--mesh circle'
-  --med_mesh_name    : Provide name of mesh in MED file
-                       works with MED input '--mesh file.med'
+  --med_mesh_name    : Select a named mesh in a MED file. defaults to the first 
+                       mesh in the file. works with MED input '--mesh file.med'
 
 ===================================================================
                             Usage Examples
