@@ -78,7 +78,7 @@ test-3s: UnitTest3S.edp folded_surface_edge.msh3d closed_surface.msh3d open_surf
 	python3 ./check_3s_regularization.py open_surface_subdivided_0000.vtu open_surface_subdivided_regularized_0000.vtu
 	python3 ./check_3s_regularization.py open_surface_feature_0000.vtu open_surface_feature_regularized_0000.vtu
 
-if WITHMEDIO
+if HAVEMEDIO
 test-med-3d: UnitTestMED3D.edp single_tetra.mesh3d closed_surface.msh3d folded_surface_edge.msh3d
 	$(MED_TEST_ENV) $(FFMPI) -np 1 UnitTestMED3D.edp -v 0 -nw > UnitTestMED3D.log
 else
@@ -98,6 +98,6 @@ test-mesh:
 	./../run/PDMT --debug --mesh ./../msh/pentagon.mesh
 
 test-med:
-if WITHMEDIO
-	./../run/PDMT --debug --mesh ./../msh/triangle1hole.med --med_mesh_name Mesh_1
+if HAVEMED
+	./../run/PDMT --debug --mesh ./../msh/triangle1hole.med
 endif

@@ -1,6 +1,6 @@
 /*****************************************************************************
 
-     Robust MED import for tetrahedral volume and triangular surface meshes.
+     Robust MED import for planar, tetrahedral volume, and surface meshes.
 
 *****************************************************************************/
 
@@ -21,6 +21,17 @@
 
 namespace PdmtMedLoader {
 
+inline std::string selectedMeshName(const std::string &fileName,
+                                    const std::string &requestedMeshName) {
+  if (!requestedMeshName.empty())
+    return requestedMeshName;
+
+  const std::vector<std::string> names = MEDCoupling::GetMeshNames(fileName);
+  if (names.empty())
+    ExecError("MED file contains no mesh");
+  return names.front();
+}
+
 inline bool hasLevel(const MEDCoupling::MEDFileUMesh &mesh, int requested) {
   const std::vector<int> levels = mesh.getNonEmptyLevels();
   return std::find(levels.begin(), levels.end(), requested) != levels.end();
@@ -38,10 +49,133 @@ inline void ensureMesh(const MEDCoupling::MEDCouplingUMesh *mesh,
   mesh->checkConsistencyLight();
 }
 
+inline Mesh *loadPlanar(const std::string &fileName,
+                        const std::string &meshName) {
+  using namespace MEDCoupling;
+  const std::string selected = selectedMeshName(fileName, meshName);
+  MCAuto<MEDFileUMesh> fileMesh = MEDFileUMesh::New(fileName, selected);
+  MCAuto<MEDCouplingUMesh> domain =
+      dynamic_cast<MEDCouplingUMesh *>(fileMesh->getMeshAtLevel(0));
+  ensureMesh(domain, "PdmtLoadMedMesh2: MED level 0 is not an unstructured mesh");
+  if (domain->getMeshDimension() != 2 || domain->getSpaceDimension() != 2)
+    ExecError("PdmtLoadMedMesh2: MED level 0 must be a planar 2D mesh");
+
+  const bool suppliedBoundary = hasLevel(*fileMesh, -1);
+  MCAuto<MEDCouplingUMesh> boundary;
+  if (suppliedBoundary) {
+    boundary = dynamic_cast<MEDCouplingUMesh *>(fileMesh->getMeshAtLevel(-1));
+    ensureMesh(boundary,
+               "PdmtLoadMedMesh2: MED level -1 is not an unstructured mesh");
+    if (boundary->getMeshDimension() != 1)
+      ExecError("PdmtLoadMedMesh2: MED level -1 must contain boundary edges");
+  }
+
+  const long nv = domain->getNumberOfNodes();
+  const long nt = domain->getNumberOfCells();
+  long nbe = suppliedBoundary ? boundary->getNumberOfCells() : 0;
+  const DataArrayIdType *cellFamilies = fileMesh->getFamilyFieldAtLevel(0);
+  const DataArrayIdType *boundaryFamilies =
+      suppliedBoundary ? fileMesh->getFamilyFieldAtLevel(-1) : 0;
+
+  Mesh::Vertex *vertices = new Mesh::Vertex[nv];
+  const double *coordinates = domain->getCoords()->getConstPointer();
+  for (long node = 0; node < nv; ++node) {
+    vertices[node].x = coordinates[2 * node];
+    vertices[node].y = coordinates[2 * node + 1];
+    vertices[node].lab = 1;
+  }
+
+  Mesh::Triangle *triangles = new Mesh::Triangle[nt];
+  std::vector<std::array<int, 3> > triangleNodes(nt);
+  const mcIdType *connectivity = domain->getNodalConnectivity()->getConstPointer();
+  const mcIdType *offsets =
+      domain->getNodalConnectivityIndex()->getConstPointer();
+  for (long cell = 0; cell < nt; ++cell) {
+    if (domain->getTypeOfCell(cell) != INTERP_KERNEL::NORM_TRI3)
+      ExecError("PdmtLoadMedMesh2: MED level 0 must contain only linear TRI3 cells");
+    const mcIdType begin = offsets[cell] + 1;
+    int nodes[3] = {
+        static_cast<int>(connectivity[begin]),
+        static_cast<int>(connectivity[begin + 1]),
+        static_cast<int>(connectivity[begin + 2])};
+    const double determinant =
+        (vertices[nodes[1]].x - vertices[nodes[0]].x) *
+            (vertices[nodes[2]].y - vertices[nodes[0]].y) -
+        (vertices[nodes[1]].y - vertices[nodes[0]].y) *
+            (vertices[nodes[2]].x - vertices[nodes[0]].x);
+    if (std::abs(determinant) <= 1.e-30)
+      ExecError("PdmtLoadMedMesh2: MED input contains a degenerate TRI3 cell");
+    if (determinant < 0.0)
+      std::swap(nodes[1], nodes[2]);
+    triangleNodes[cell] = {{nodes[0], nodes[1], nodes[2]}};
+    triangles[cell].set(vertices, nodes[0], nodes[1], nodes[2],
+                        familyLabel(cellFamilies, cell));
+  }
+
+  Mesh::BorderElement *boundaryEdges = 0;
+  if (suppliedBoundary) {
+    boundaryEdges = new Mesh::BorderElement[nbe];
+    const mcIdType *boundaryConnectivity =
+        boundary->getNodalConnectivity()->getConstPointer();
+    const mcIdType *boundaryOffsets =
+        boundary->getNodalConnectivityIndex()->getConstPointer();
+    for (long edge = 0; edge < nbe; ++edge) {
+      if (boundary->getTypeOfCell(edge) != INTERP_KERNEL::NORM_SEG2)
+        ExecError("PdmtLoadMedMesh2: MED level -1 must contain only linear SEG2 cells");
+      const mcIdType begin = boundaryOffsets[edge] + 1;
+      boundaryEdges[edge].set(
+          vertices, static_cast<int>(boundaryConnectivity[begin]),
+          static_cast<int>(boundaryConnectivity[begin + 1]),
+          familyLabel(boundaryFamilies, edge));
+    }
+  } else {
+    typedef std::array<int, 2> Edge;
+    struct BoundaryEdgeCandidate {
+      Edge oriented;
+      int count;
+      BoundaryEdgeCandidate() : oriented({{0, 0}}), count(0) {}
+    };
+    std::map<Edge, BoundaryEdgeCandidate> edges;
+    static const int localEdges[3][2] = {{0, 1}, {1, 2}, {2, 0}};
+    for (long cell = 0; cell < nt; ++cell) {
+      for (int local = 0; local < 3; ++local) {
+        Edge oriented = {{triangleNodes[cell][localEdges[local][0]],
+                          triangleNodes[cell][localEdges[local][1]]}};
+        Edge key = oriented;
+        std::sort(key.begin(), key.end());
+        BoundaryEdgeCandidate &candidate = edges[key];
+        if (candidate.count == 0)
+          candidate.oriented = oriented;
+        ++candidate.count;
+      }
+    }
+    for (std::map<Edge, BoundaryEdgeCandidate>::const_iterator edge = edges.begin();
+         edge != edges.end(); ++edge)
+      if (edge->second.count == 1)
+        ++nbe;
+    boundaryEdges = new Mesh::BorderElement[nbe];
+    long boundaryId = 0;
+    for (std::map<Edge, BoundaryEdgeCandidate>::const_iterator edge = edges.begin();
+         edge != edges.end(); ++edge) {
+      if (edge->second.count != 1)
+        continue;
+      boundaryEdges[boundaryId++].set(
+          vertices, edge->second.oriented[0], edge->second.oriented[1], 1);
+    }
+  }
+
+  Mesh *result = new Mesh(nv, nt, nbe, vertices, triangles, boundaryEdges);
+  if (!suppliedBoundary && verbosity)
+    std::cout << "PdmtLoadMedMesh2: MED mesh has no level -1; reconstructed "
+              << result->neb << " boundary edges" << std::endl;
+  return result;
+}
+
 inline Mesh3 *loadVolume(const std::string &fileName,
                          const std::string &meshName) {
   using namespace MEDCoupling;
-  MCAuto<MEDFileUMesh> fileMesh = MEDFileUMesh::New(fileName, meshName);
+  const std::string selected = selectedMeshName(fileName, meshName);
+  MCAuto<MEDFileUMesh> fileMesh = MEDFileUMesh::New(fileName, selected);
   MCAuto<MEDCouplingUMesh> volume =
       dynamic_cast<MEDCouplingUMesh *>(fileMesh->getMeshAtLevel(0));
   ensureMesh(volume, "PdmtLoadMedMesh3: MED level 0 is not an unstructured mesh");
@@ -180,7 +314,8 @@ inline Mesh3 *loadVolume(const std::string &fileName,
 inline MeshS *loadSurface(const std::string &fileName,
                           const std::string &meshName) {
   using namespace MEDCoupling;
-  MCAuto<MEDFileUMesh> fileMesh = MEDFileUMesh::New(fileName, meshName);
+  const std::string selected = selectedMeshName(fileName, meshName);
+  MCAuto<MEDFileUMesh> fileMesh = MEDFileUMesh::New(fileName, selected);
   MCAuto<MEDCouplingUMesh> surface =
       dynamic_cast<MEDCouplingUMesh *>(fileMesh->getMeshAtLevel(0));
   ensureMesh(surface, "PdmtLoadMedMeshS: MED level 0 is not an unstructured mesh");
@@ -259,6 +394,46 @@ inline std::string exceptionMessage(const char *operation,
 
 } // namespace PdmtMedLoader
 
+class pdmtMedLoader2_Op : public E_F0mps {
+public:
+  Expression filename;
+  static const int n_name_param = 1;
+  static basicAC_F0::name_and_type name_param[];
+  Expression nargs[n_name_param];
+
+  pdmtMedLoader2_Op(const basicAC_F0 &args, Expression input)
+      : filename(input) {
+    args.SetNameParam(n_name_param, name_param, nargs);
+  }
+
+  AnyType operator()(Stack stack) const {
+    std::string *file = GetAny<std::string *>((*filename)(stack));
+    const std::string meshName = nargs[0]
+        ? *GetAny<std::string *>((*nargs[0])(stack)) : std::string();
+    try {
+      Mesh *mesh = PdmtMedLoader::loadPlanar(*file, meshName);
+      Add2StackOfPtr2FreeRC(stack, mesh);
+      return mesh;
+    } catch (const std::exception &error) {
+      const std::string message =
+          PdmtMedLoader::exceptionMessage("PdmtLoadMedMesh2", error);
+      ExecError(message.c_str());
+    }
+    return pmesh(0);
+  }
+};
+
+basicAC_F0::name_and_type pdmtMedLoader2_Op::name_param[] = {
+    {"meshname", &typeid(std::string *)}};
+
+class pdmtMedLoader2 : public OneOperator {
+public:
+  pdmtMedLoader2() : OneOperator(atype<pmesh>(), atype<std::string *>()) {}
+  E_F0 *code(const basicAC_F0 &args) const {
+    return new pdmtMedLoader2_Op(args, t[0]->CastTo(args[0]));
+  }
+};
+
 class pdmtMedLoader3_Op : public E_F0mps {
 public:
   Expression filename;
@@ -273,11 +448,10 @@ public:
 
   AnyType operator()(Stack stack) const {
     std::string *file = GetAny<std::string *>((*filename)(stack));
-    if (!nargs[0])
-      ExecError("PdmtLoadMedMesh3: meshname is required");
-    std::string *meshName = GetAny<std::string *>((*nargs[0])(stack));
+    const std::string meshName = nargs[0]
+        ? *GetAny<std::string *>((*nargs[0])(stack)) : std::string();
     try {
-      Mesh3 *mesh = PdmtMedLoader::loadVolume(*file, *meshName);
+      Mesh3 *mesh = PdmtMedLoader::loadVolume(*file, meshName);
       Add2StackOfPtr2FreeRC(stack, mesh);
       return mesh;
     } catch (const std::exception &error) {
@@ -314,11 +488,10 @@ public:
 
   AnyType operator()(Stack stack) const {
     std::string *file = GetAny<std::string *>((*filename)(stack));
-    if (!nargs[0])
-      ExecError("PdmtLoadMedMeshS: meshname is required");
-    std::string *meshName = GetAny<std::string *>((*nargs[0])(stack));
+    const std::string meshName = nargs[0]
+        ? *GetAny<std::string *>((*nargs[0])(stack)) : std::string();
     try {
-      MeshS *mesh = PdmtMedLoader::loadSurface(*file, *meshName);
+      MeshS *mesh = PdmtMedLoader::loadSurface(*file, meshName);
       Add2StackOfPtr2FreeRC(stack, mesh);
       return mesh;
     } catch (const std::exception &error) {

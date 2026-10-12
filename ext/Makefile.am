@@ -48,16 +48,10 @@ LIST_MAKE_EXECUTE =
 endif
 
 
-if BUILDDEPENDENCIES
-LIST_MAKE_INSTALL = medio-install
-else
-LIST_MAKE_INSTALL =
-endif
-
 all-local: $(LIST_MAKE_EXECUTE)
 	@echo ""
 
-install-exec-local: $(LIST_MAKE_INSTALL)
+install-exec-local:
 	@echo ""
 	@echo "*============================================================*"
 	@echo "   external depndencies intallation phase "

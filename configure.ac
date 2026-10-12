@@ -67,7 +67,7 @@ AC_ARG_WITH([medcoupling],
         [medcoupling="$withval"], [medcoupling="no"])
 
 AC_ARG_WITH([medio],
-	[  --with-medio=        medio root path : (e.g. --with-medio=/home/medio/lib)],
+	[  --with-medio=        optional medio path: (e.g. --with-medio=/home/medio/lib)],
         [medio="$withval"], [medio="no"])
 
 dnl ---------------------------------------------------------------------------
@@ -334,7 +334,8 @@ AC_SUBST([hdf5])
 AC_SUBST([medfile])
 AC_SUBST([medcoupling])
 
-AM_CONDITIONAL([HAVEMED], [test $hdf5 != no -a $medfile != no -a $medcoupling != no])
+AM_CONDITIONAL([HAVEMED],
+  [test $hdf5 != no -a $medfile != no -a $medcoupling != no -o $dependencies != no])
 AC_MSG_RESULT([])
 test $hdf5 != no && AC_MSG_RESULT([checking for hdf5... yes])
 test $hdf5 == no && AC_MSG_RESULT([checking for hdf5... no])
@@ -387,8 +388,8 @@ you did not provide the flags:
     --with-medcoupling
  ])
 
-AM_CONDITIONAL([WITHMEDIO], [test $hdf5 != no -a $medfile != no -a $medcoupling != no])
-AM_CONDITIONAL([WITHMEDIO], [test $dependencies != no])
+AM_CONDITIONAL([HAVEMEDIO],
+  [test $dependencies != no -o $medio != no -a $hdf5 != no -a $medfile != no -a $medcoupling != no])
 dnl ---------------------------------------------------------------
 
 

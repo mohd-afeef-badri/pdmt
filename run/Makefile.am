@@ -6,28 +6,26 @@ EXPORT_PDMT +=\nexport PATH="${prefix}/bin:$$PATH";\nexport LD_LIBRARY_PATH="${p
 
 
 if HAVEDEPENDENCIES
-EXPORT_MED  =\nexport out_dir_Path=${prefix}/bin
-EXPORT_MED +=\nexport PATH="$${out_dir_Path}$(PDMT_HDF5_DIR)/bin:$${PATH}"
+EXPORT_MED  =\nexport PATH="$(PDMT_HDF5_DIR)/bin:$${PATH}"
 EXPORT_MED +=\nexport LD_LIBRARY_PATH="$(PDMT_HDF5_DIR)/lib:$${LD_LIBRARY_PATH}"
-EXPORT_MED +=\nexport PATH="$${out_dir_Path}$(PDMT_MEDFILE_DIR)/bin:$${PATH}"
+EXPORT_MED +=\nexport PATH="$(PDMT_MEDFILE_DIR)/bin:$${PATH}"
 EXPORT_MED +=\nexport LD_LIBRARY_PATH="$(PDMT_MEDFILE_DIR)/lib:$${LD_LIBRARY_PATH}"
 EXPORT_MED +=\nexport MEDCOUPLING_ROOT_DIR="$(PDMT_MEDCOUPLING_DIR)"
 EXPORT_MED +=\nexport PATH="$${MEDCOUPLING_ROOT_DIR}/bin:$${PATH}"
 EXPORT_MED +=\nexport LD_LIBRARY_PATH="$${MEDCOUPLING_ROOT_DIR}/lib:$${LD_LIBRARY_PATH}"
-endif
-
+else
 if HAVEMED
-EXPORT_MED  =\nexport out_dir_Path=${prefix}/bin
-EXPORT_MED +=\nexport PATH="$${out_dir_Path}$(hdf5)/bin:$${PATH}"
+EXPORT_MED  =\nexport PATH="$(hdf5)/bin:$${PATH}"
 EXPORT_MED +=\nexport LD_LIBRARY_PATH="$(hdf5)/lib:$${LD_LIBRARY_PATH}"
-EXPORT_MED +=\nexport PATH="$${out_dir_Path}/$(medfile)/bin:$${PATH}"
-EXPORT_MED +=\nexport LD_LIBRARY_PATH="$(medfile)lib:$${LD_LIBRARY_PATH}"
+EXPORT_MED +=\nexport PATH="$(medfile)/bin:$${PATH}"
+EXPORT_MED +=\nexport LD_LIBRARY_PATH="$(medfile)/lib:$${LD_LIBRARY_PATH}"
 EXPORT_MED +=\nexport MEDCOUPLING_ROOT_DIR="$(medcoupling)"
 EXPORT_MED +=\nexport PATH="$${MEDCOUPLING_ROOT_DIR}/bin:$${PATH}"
 EXPORT_MED +=\nexport LD_LIBRARY_PATH="$${MEDCOUPLING_ROOT_DIR}/lib:$${LD_LIBRARY_PATH}"
 endif
+endif
 
-if !WITHMEDIO
+if !HAVEMED
 EXPORT_MED  =
 endif
 
@@ -44,11 +42,10 @@ install-exec-local:
 	@mkdir -p ${prefix}/lib
 	@mkdir -p ${prefix}/bin
 	cp meshIO.idp meshIO.idp.tmp
-if !WITHMEDIO
-	find . -name meshIO.idp.tmp -exec sed -i -e "s#load \"medio\"##g" {} \;
-	find . -name meshIO.idp.tmp -exec sed -i -e "s#Th2D = loadmedmesh(meshName, meshname = medMeshName);#cout<<\"No med support PDMT not compiled with medio\"<<endl;#g" {} \;
-	find . -name meshIO.idp.tmp -exec sed -i -e "s#Th3D = PdmtLoadMedMesh3(meshName, meshname = medMeshName);#cout<<\"No med support PDMT not compiled with medio\"<<endl;#g" {} \;
-	find . -name meshIO.idp.tmp -exec sed -i -e "s#ThS = PdmtLoadMedMeshS(meshName, meshname = medMeshName);#cout<<\"No med support PDMT not compiled with medio\"<<endl;#g" {} \;
+if !HAVEMED
+	find . -name meshIO.idp.tmp -exec sed -i -e "s#Th2D = PdmtLoadMedMesh2(meshName, meshname = medMeshName);#cout<<\"No MED support: PDMT was built without MEDCoupling\"<<endl;#g" {} \;
+	find . -name meshIO.idp.tmp -exec sed -i -e "s#Th3D = PdmtLoadMedMesh3(meshName, meshname = medMeshName);#cout<<\"No MED support: PDMT was built without MEDCoupling\"<<endl;#g" {} \;
+	find . -name meshIO.idp.tmp -exec sed -i -e "s#ThS = PdmtLoadMedMeshS(meshName, meshname = medMeshName);#cout<<\"No MED support: PDMT was built without MEDCoupling\"<<endl;#g" {} \;
 endif
 	cp pdmt.edp pdmt.edp.tmp && find . -name pdmt.edp.tmp -exec sed -i -e "s#./../src/pdmt#pdmt#g" {} \;
 	mv meshIO.idp.tmp ${prefix}/lib/meshIO.idp

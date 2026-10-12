@@ -55,6 +55,7 @@ static void InitFF()
   Global.Add("PdmtBuildDual3S", "(", new pdmtBuildDual3S);
   Global.Add("PdmtPolyMeshWrite"  ,"(", new polyMeshWrite<double>);
 #ifdef MEDCOUPLING
+  Global.Add("PdmtLoadMedMesh2", "(", new pdmtMedLoader2);
   Global.Add("PdmtLoadMedMesh3", "(", new pdmtMedLoader3);
   Global.Add("PdmtLoadMedMeshS", "(", new pdmtMedLoaderS);
 #endif
