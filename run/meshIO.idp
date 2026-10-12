@@ -66,8 +66,7 @@ func mesh loadTheMesh(string meshName, string medMeshName){
     }
 
     if( meshName.find(".med") > -1 ){
-      load "medio"
-      Th2D = loadmedmesh(meshName, meshname = medMeshName);
+      Th2D = PdmtLoadMedMesh2(meshName, meshname = medMeshName);
     }
 
     if( meshName.find(".mesh") > -1 ){

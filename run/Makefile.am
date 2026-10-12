@@ -27,7 +27,7 @@ EXPORT_MED +=\nexport PATH="$${MEDCOUPLING_ROOT_DIR}/bin:$${PATH}"
 EXPORT_MED +=\nexport LD_LIBRARY_PATH="$${MEDCOUPLING_ROOT_DIR}/lib:$${LD_LIBRARY_PATH}"
 endif
 
-if !WITHMEDIO
+if !HAVEMED
 EXPORT_MED  =
 endif
 
@@ -44,11 +44,10 @@ install-exec-local:
 	@mkdir -p ${prefix}/lib
 	@mkdir -p ${prefix}/bin
 	cp meshIO.idp meshIO.idp.tmp
-if !WITHMEDIO
-	find . -name meshIO.idp.tmp -exec sed -i -e "s#load \"medio\"##g" {} \;
-	find . -name meshIO.idp.tmp -exec sed -i -e "s#Th2D = loadmedmesh(meshName, meshname = medMeshName);#cout<<\"No med support PDMT not compiled with medio\"<<endl;#g" {} \;
-	find . -name meshIO.idp.tmp -exec sed -i -e "s#Th3D = PdmtLoadMedMesh3(meshName, meshname = medMeshName);#cout<<\"No med support PDMT not compiled with medio\"<<endl;#g" {} \;
-	find . -name meshIO.idp.tmp -exec sed -i -e "s#ThS = PdmtLoadMedMeshS(meshName, meshname = medMeshName);#cout<<\"No med support PDMT not compiled with medio\"<<endl;#g" {} \;
+if !HAVEMED
+	find . -name meshIO.idp.tmp -exec sed -i -e "s#Th2D = PdmtLoadMedMesh2(meshName, meshname = medMeshName);#cout<<\"No MED support: PDMT was built without MEDCoupling\"<<endl;#g" {} \;
+	find . -name meshIO.idp.tmp -exec sed -i -e "s#Th3D = PdmtLoadMedMesh3(meshName, meshname = medMeshName);#cout<<\"No MED support: PDMT was built without MEDCoupling\"<<endl;#g" {} \;
+	find . -name meshIO.idp.tmp -exec sed -i -e "s#ThS = PdmtLoadMedMeshS(meshName, meshname = medMeshName);#cout<<\"No MED support: PDMT was built without MEDCoupling\"<<endl;#g" {} \;
 endif
 	cp pdmt.edp pdmt.edp.tmp && find . -name pdmt.edp.tmp -exec sed -i -e "s#./../src/pdmt#pdmt#g" {} \;
 	mv meshIO.idp.tmp ${prefix}/lib/meshIO.idp
