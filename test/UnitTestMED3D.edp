@@ -26,7 +26,23 @@ int volumeCount = PdmtBuildDual3D(Tet,
 if (volumeCount != 4) exit(402);
 PdmtPolyMeshWrite("single_tetra_poly.med",
     nodes=volumeNodes, faces=volumeFaces, cells=volumeCells,
-    labels=volumeLabels, faceLabels=volumeFaceLabels);
+    labels=volumeLabels, faceLabels=volumeFaceLabels,
+    sourceMeshFile="single_tetra_input.med",
+    sourceMeshName="TetrahedralMesh");
+int[int] sourceVolumeGroupIds, outputVolumeGroupIds;
+int[int] sourceBoundaryGroupIds, outputBoundaryGroupIds;
+getMedLabelsOnGroup(sourceVolumeGroupIds, "single_tetra_input.med",
+                    "tetra_group_7");
+getMedLabelsOnGroup(outputVolumeGroupIds, "single_tetra_poly.med",
+                    "tetra_group_7");
+getMedLabelsOnGroup(sourceBoundaryGroupIds, "single_tetra_input.med",
+                    "tria_group_1");
+getMedLabelsOnGroup(outputBoundaryGroupIds, "single_tetra_poly.med",
+                    "tria_group_1");
+if (sourceVolumeGroupIds.n != 1 || outputVolumeGroupIds.n != 1 ||
+    sourceVolumeGroupIds[0] != outputVolumeGroupIds[0]) exit(407);
+if (sourceBoundaryGroupIds.n != 1 || outputBoundaryGroupIds.n != 1 ||
+    sourceBoundaryGroupIds[0] != outputBoundaryGroupIds[0]) exit(408);
 
 // Exercise triangular-surface MED input and polygonal-surface MED output.
 meshS SurfaceInput = gmshloadS("closed_surface.msh3d");
@@ -42,7 +58,15 @@ int surfaceCount = PdmtBuildDual3S(Surface,
     featureAngle=180.0, mode="smooth_dual");
 if (surfaceCount != 4) exit(404);
 PdmtPolyMeshWrite("closed_surface_poly.med",
-    nodes=surfaceNodes, cells=surfaceCells, labels=surfaceLabels);
+    nodes=surfaceNodes, cells=surfaceCells, labels=surfaceLabels,
+    sourceMeshFile="closed_surface_input.med");
+int[int] sourceSurfaceGroupIds, outputSurfaceGroupIds;
+getMedLabelsOnGroup(sourceSurfaceGroupIds, "closed_surface_input.med",
+                    "tria_group_4");
+getMedLabelsOnGroup(outputSurfaceGroupIds, "closed_surface_poly.med",
+                    "tria_group_4");
+if (sourceSurfaceGroupIds.n != 1 || outputSurfaceGroupIds.n != 1 ||
+    sourceSurfaceGroupIds[0] != outputSurfaceGroupIds[0]) exit(409);
 
 // Generate a grouped MED surface from a tracked Gmsh fixture, then verify that
 // ALL enumerates its one-dimensional MED groups. This avoids binary fixtures.

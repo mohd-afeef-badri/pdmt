@@ -54,7 +54,7 @@ class polyMeshWrite_Op : public E_F0mps
 public:
     Expression filename			                ;
 
-    static const int n_name_param = 6		        ;
+    static const int n_name_param = 8		        ;
     static basicAC_F0::name_and_type name_param[]	;
     Expression nargs[n_name_param]			;
 
@@ -80,7 +80,9 @@ basicAC_F0::name_and_type polyMeshWrite_Op<K>::name_param[] =
     {"edges"   , &typeid(KN<KN<long>>*)},
     {"labels"  , &typeid(KN<long>*)},
     {"faces"   , &typeid(KN<KN<long>>*)},
-    {"faceLabels", &typeid(KN<long>*)}
+    {"faceLabels", &typeid(KN<long>*)},
+    {"sourceMeshFile", &typeid(std::string*)},
+    {"sourceMeshName", &typeid(std::string*)}
 };
 
 
@@ -111,6 +113,8 @@ AnyType polyMeshWrite_Op<K>::operator()(Stack stack) const
     KN<long>       *LabelsPoly= 0;
     KN<KN<long>>   *FacesPoly = 0;
     KN<long>       *FaceLabelsPoly = 0;
+    std::string    *SourceMeshFile = 0;
+    std::string    *SourceMeshName = 0;
 
     bool withEdges = false;
     bool withLabel = false;
@@ -140,6 +144,12 @@ AnyType polyMeshWrite_Op<K>::operator()(Stack stack) const
 
     if(nargs[5])
      FaceLabelsPoly = GetAny< KN<long> * >((*nargs[5])(stack));
+
+    if(nargs[6])
+     SourceMeshFile = GetAny< std::string * >((*nargs[6])(stack));
+
+    if(nargs[7])
+     SourceMeshName = GetAny< std::string * >((*nargs[7])(stack));
 
     if(!nodesPoly || !CellsPoly)
       ExecError("PdmtPolyMeshWrite: nodes and cells are required");
@@ -189,11 +199,14 @@ AnyType polyMeshWrite_Op<K>::operator()(Stack stack) const
 #ifdef MEDCOUPLING
     if ((fullFileName).find(".med") != std::string::npos) {
      if(withFaces)
-       writePolyMed3D(inputfile,nodesPoly,CellsPoly,FacesPoly,LabelsPoly,FaceLabelsPoly);
+       writePolyMed3D(inputfile,nodesPoly,CellsPoly,FacesPoly,LabelsPoly,
+                      FaceLabelsPoly,SourceMeshFile,SourceMeshName);
      else if(nodesPoly->M() >= 3)
-       writePolySurfaceMed(inputfile,nodesPoly,CellsPoly,LabelsPoly);
+       writePolySurfaceMed(inputfile,nodesPoly,CellsPoly,LabelsPoly,
+                           SourceMeshFile,SourceMeshName);
      else
-       writePolyMed(inputfile,nodesPoly,CellsPoly,EdgesPoly, LabelsPoly);
+       writePolyMed(inputfile,nodesPoly,CellsPoly,EdgesPoly,LabelsPoly,
+                    SourceMeshFile,SourceMeshName);
     }
 #else
     if ((fullFileName).find(".med") != std::string::npos)

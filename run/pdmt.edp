@@ -141,7 +141,9 @@ func int run3D (){
       cells = PhC,
       faces = PhF,
       labels = PhLabels,
-      faceLabels = PhFaceLabels);
+      faceLabels = PhFaceLabels,
+      sourceMeshFile = ThName,
+      sourceMeshName = MedMeshName);
 
   return 0;
 }
@@ -204,7 +206,9 @@ func int run3S (){
   PdmtPolyMeshWrite(ThNameOut,
       nodes = PhV,
       cells = PhC,
-      labels = PhLabels);
+      labels = PhLabels,
+      sourceMeshFile = ThName,
+      sourceMeshName = MedMeshName);
 
   return 0;
 }
@@ -896,7 +900,9 @@ if (ThNameOut != "PDMT_POLY_MESH_"){
                       nodes = PhV,
                       cells = PhC,
                       edges = PhE,          // this is optional
-                      labels = PhELabels    // this is optional
+                      labels = PhELabels,   // this is optional
+                      sourceMeshFile = ThName,
+                      sourceMeshName = MedMeshName
                    );
 
 
