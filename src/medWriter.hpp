@@ -2,13 +2,218 @@
 #define PDMT_MED_WRITER_HPP
 
 #include <algorithm>
+#include <cctype>
 #include <fstream>
 #include <map>
 #include <set>
 #include <string>
 #include <vector>
 
-void writePolyMed(std::string const * fineName, KNM < double > * nodesPoly, KN < KN < long >> * CellsPoly, KN < KN < long >> * EdgesPoly, KN < long > * LabelsPoly)
+namespace PdmtMedWriter {
+
+inline mcIdType cellFamily(long label) {
+  // Keep lower-dimensional boundary labels unchanged, as the historical 2D
+  // writer does, while putting cell families in a disjoint range.
+  return static_cast<mcIdType>(label + 1000);
+}
+
+inline mcIdType boundaryFamily(long label) {
+  // MED family zero means "no family" and therefore cannot form a group.
+  return static_cast<mcIdType>(label == 0 ? 2000 : label);
+}
+
+struct SourceMetadata {
+  bool available;
+  std::map<std::string, mcIdType> families;
+  std::map<std::string, std::vector<std::string> > groups;
+  std::map<int, std::set<mcIdType> > familyIdsByLevel;
+  std::map<int, std::set<std::string> > groupsByLevel;
+
+  SourceMetadata() : available(false) {}
+};
+
+inline bool isMedFileName(const std::string &fileName) {
+  if (fileName.size() < 4)
+    return false;
+  std::string suffix = fileName.substr(fileName.size() - 4);
+  for (std::string::iterator character = suffix.begin();
+       character != suffix.end(); ++character)
+    *character = static_cast<char>(std::tolower(
+        static_cast<unsigned char>(*character)));
+  return suffix == ".med";
+}
+
+inline SourceMetadata readSourceMetadata(
+    const std::string *sourceMeshFile,
+    const std::string *sourceMeshName) {
+  SourceMetadata result;
+  if (!sourceMeshFile || sourceMeshFile->empty() ||
+      !isMedFileName(*sourceMeshFile))
+    return result;
+
+  std::string selectedName = sourceMeshName ? *sourceMeshName : std::string();
+  if (selectedName.empty()) {
+    const std::vector<std::string> names =
+        MEDCoupling::GetMeshNames(*sourceMeshFile);
+    if (names.empty())
+      ExecError("PdmtPolyMeshWrite: source MED file contains no mesh");
+    selectedName = names.front();
+  }
+
+  MCAuto<MEDFileUMesh> source =
+      MEDFileUMesh::New(*sourceMeshFile, selectedName);
+  result.families = source->getFamilyInfo();
+  result.groups = source->getGroupInfo();
+  const std::vector<int> levels = source->getNonEmptyLevels();
+  for (std::vector<int>::const_iterator level = levels.begin();
+       level != levels.end(); ++level) {
+    const DataArrayIdType *field = source->getFamilyFieldAtLevel(*level);
+    if (field)
+      for (mcIdType cell = 0; cell < field->getNumberOfTuples(); ++cell)
+        result.familyIdsByLevel[*level].insert(field->getIJ(cell, 0));
+    const std::vector<std::string> levelGroups =
+        source->getGroupsOnSpecifiedLev(*level);
+    result.groupsByLevel[*level].insert(
+        levelGroups.begin(), levelGroups.end());
+  }
+  result.available = true;
+  return result;
+}
+
+inline void appendUnique(std::vector<std::string> &values,
+                         const std::string &value) {
+  if (std::find(values.begin(), values.end(), value) == values.end())
+    values.push_back(value);
+}
+
+inline std::vector<std::string> sourceFamilyNames(
+    const SourceMetadata &source, int level, mcIdType familyId) {
+  std::vector<std::string> result;
+  std::map<int, std::set<mcIdType> >::const_iterator levelIds =
+      source.familyIdsByLevel.find(level);
+  if (!source.available || levelIds == source.familyIdsByLevel.end() ||
+      levelIds->second.find(familyId) == levelIds->second.end())
+    return result;
+  for (std::map<std::string, mcIdType>::const_iterator family =
+           source.families.begin(); family != source.families.end(); ++family)
+    if (family->second == familyId)
+      result.push_back(family->first);
+  return result;
+}
+
+inline std::string uniqueSyntheticName(
+    const std::string &preferred,
+    const std::map<std::string, mcIdType> &sourceNames,
+    const std::map<std::string, mcIdType> &outputNames) {
+  std::string candidate = preferred;
+  long suffix = 1;
+  while (sourceNames.find(candidate) != sourceNames.end() ||
+         outputNames.find(candidate) != outputNames.end())
+    candidate = preferred + "_pdmt_" + to_string(suffix++);
+  return candidate;
+}
+
+inline std::string uniqueSyntheticGroupName(
+    const std::string &preferred,
+    const SourceMetadata &source,
+    const std::map<std::string, std::vector<std::string> > &outputGroups) {
+  std::string candidate = preferred;
+  long suffix = 1;
+  while (source.groups.find(candidate) != source.groups.end() ||
+         outputGroups.find(candidate) != outputGroups.end())
+    candidate = preferred + "_pdmt_" + to_string(suffix++);
+  return candidate;
+}
+
+inline mcIdType uniqueSyntheticFamilyId(
+    mcIdType preferred, const SourceMetadata &source,
+    const std::map<std::string, mcIdType> &outputFamilies) {
+  std::set<mcIdType> used;
+  for (std::map<std::string, mcIdType>::const_iterator family =
+           source.families.begin(); family != source.families.end(); ++family)
+    used.insert(family->second);
+  for (std::map<std::string, mcIdType>::const_iterator family =
+           outputFamilies.begin(); family != outputFamilies.end(); ++family)
+    used.insert(family->second);
+  mcIdType candidate = preferred == 0 ? 2000 : preferred;
+  while (candidate == 0 || used.find(candidate) != used.end())
+    ++candidate;
+  return candidate;
+}
+
+inline void addCellFamilies(
+    MEDFileUMesh *fileMesh, int level, KN<long> *labels, long count,
+    const std::string &kind,
+    std::map<std::string, mcIdType> &families,
+    std::map<std::string, std::vector<std::string> > &groups,
+    bool topLevel, const SourceMetadata &source) {
+  if (!labels || count == 0)
+    return;
+
+  std::set<long> uniqueLabels;
+  for (long i = 0; i < count; ++i)
+    uniqueLabels.insert((*labels)[i]);
+
+  std::map<long, mcIdType> outputIds;
+  std::set<std::string> activeSourceFamilies;
+  for (std::set<long>::const_iterator label = uniqueLabels.begin();
+       label != uniqueLabels.end(); ++label) {
+    const std::vector<std::string> originalNames =
+        sourceFamilyNames(source, level, static_cast<mcIdType>(*label));
+    if (!originalNames.empty()) {
+      outputIds[*label] = static_cast<mcIdType>(*label);
+      for (std::vector<std::string>::const_iterator name =
+               originalNames.begin(); name != originalNames.end(); ++name) {
+        families[*name] = static_cast<mcIdType>(*label);
+        activeSourceFamilies.insert(*name);
+      }
+      continue;
+    }
+
+    const mcIdType preferredId =
+        topLevel ? cellFamily(*label) : boundaryFamily(*label);
+    const mcIdType familyId = source.available
+        ? uniqueSyntheticFamilyId(preferredId, source, families)
+        : preferredId;
+    const std::string familyName = uniqueSyntheticName(
+        kind + "_family_" + to_string(*label), source.families, families);
+    const std::string groupName = uniqueSyntheticGroupName(
+        kind + "_group_" + to_string(*label), source, groups);
+    outputIds[*label] = familyId;
+    families[familyName] = familyId;
+    groups[groupName].push_back(familyName);
+  }
+
+  MCAuto<DataArrayIdType> field = DataArrayIdType::New();
+  field->alloc(count, 1);
+  for (long i = 0; i < count; ++i)
+    field->setIJ(i, 0, outputIds[(*labels)[i]]);
+  fileMesh->setFamilyFieldArr(level, field);
+
+  std::map<int, std::set<std::string> >::const_iterator levelGroups =
+      source.groupsByLevel.find(level);
+  if (levelGroups == source.groupsByLevel.end())
+    return;
+  for (std::set<std::string>::const_iterator groupName =
+           levelGroups->second.begin(); groupName != levelGroups->second.end();
+       ++groupName) {
+    std::map<std::string, std::vector<std::string> >::const_iterator sourceGroup =
+        source.groups.find(*groupName);
+    if (sourceGroup == source.groups.end())
+      continue;
+    for (std::vector<std::string>::const_iterator family =
+             sourceGroup->second.begin(); family != sourceGroup->second.end();
+         ++family)
+      if (activeSourceFamilies.find(*family) != activeSourceFamilies.end())
+        appendUnique(groups[*groupName], *family);
+    if (groups[*groupName].empty())
+      groups.erase(*groupName);
+  }
+}
+
+} // namespace PdmtMedWriter
+
+void writePolyMed(std::string const * fineName, KNM < double > * nodesPoly, KN < KN < long >> * CellsPoly, KN < KN < long >> * EdgesPoly, KN < long > * LabelsPoly, const std::string *sourceMeshFile, const std::string *sourceMeshName)
 {
       //  get nodes of the mesh  //
       int TotalNodes = nodesPoly -> N();
@@ -107,72 +312,30 @@ void writePolyMed(std::string const * fineName, KNM < double > * nodesPoly, KN <
 
       if (LabelsPoly) {
 
+        if (!EdgesPoly)
+          ExecError("PdmtPolyMeshWrite: labeled 2D MED output requires boundary edges");
+
         MCAuto < MEDFileUMesh > finalMeshWithLabel = MEDFileUMesh::New();
 
         finalMeshWithLabel -> setMeshAtLevel(0, medMesh2d);
         finalMeshWithLabel -> setMeshAtLevel(-1, medMesh1d);
 
-        MCAuto < DataArrayIdType > fam2d = DataArrayIdType::New();
-        MCAuto < DataArrayIdType > fam1d = DataArrayIdType::New();
-
-        fam2d -> alloc(CellsPoly -> N(), 1);
-        fam1d -> alloc(EdgesPoly -> N(), 1);
-
-        mcIdType elemsFams[CellsPoly -> N() + EdgesPoly -> N()];
-
-        std::set < int > poly2DUniqueLabels;
-        std::set < int > poly1DUniqueLabels;
-
-        for (int i = 0; i < CellsPoly -> N(); i++) {
-          poly2DUniqueLabels.insert(( * LabelsPoly)(i));
-          elemsFams[i] = ( * LabelsPoly)(i) + 1000; // Adding 1000 because med does not like tag zero
-        }
-
-        for (int i = CellsPoly -> N(); i < EdgesPoly -> N() + CellsPoly -> N(); i++) {
-          poly1DUniqueLabels.insert(( * LabelsPoly)(i));
-          elemsFams[i] = ( * LabelsPoly)(i);
-        }
-
-#ifdef DEBUG
-        // Iterate through all the elements in a set and display the value.
-        for (std::set < int > ::iterator it = poly2DUniqueLabels.begin(); it != poly2DUniqueLabels.end(); ++it)
-          std::cout << " Volume tag_i " << * it << endl;
-
-        for (std::set < int > ::iterator it = poly1DUniqueLabels.begin(); it != poly1DUniqueLabels.end(); ++it)
-          std::cout << " Surface tag_i " << * it << endl;
-#endif
-        std::copy(elemsFams, elemsFams + CellsPoly -> N(), fam2d -> getPointer());
-        std::copy(elemsFams + CellsPoly -> N(), elemsFams + int(EdgesPoly -> N() + CellsPoly -> N()), fam1d -> getPointer());
-
-        finalMeshWithLabel -> setFamilyFieldArr(-1, fam1d);
-        finalMeshWithLabel -> setFamilyFieldArr(0, fam2d);
-
         std::map < std::string, std::vector < std::string >> theGroups;
         std::map < std::string, mcIdType > theFamilies;
-
-        for (std::set < int > ::iterator it = poly2DUniqueLabels.begin(); it != poly2DUniqueLabels.end(); ++it) {
-          theFamilies["cell_family_" + to_string( * it) + ""] = * it + 1000;
-          theGroups["cell_group_" + to_string( * it) + ""].push_back("cell_family_" + to_string( * it) + "");
-        }
-
-        for (std::set < int > ::iterator it = poly1DUniqueLabels.begin(); it != poly1DUniqueLabels.end(); ++it) {
-          theFamilies["boundary_family_" + to_string( * it) + ""] = * it;
-          theGroups["boundary_group_" + to_string( * it) + ""].push_back("boundary_family_" + to_string( * it) + "");
-        }
-
-    /*
-            theFamilies["cells" ]=0;
-            theFamilies["border1"]=1;
-            theFamilies["border2"]=2;
-            theFamilies["border3"]=3;
-            theFamilies["border4"]=4;
-
-            theGroups["Face_group"].push_back("cells");
-            theGroups["boundary1"].push_back("border1");
-            theGroups["boundary2"].push_back("border2");
-            theGroups["boundary3"].push_back("border3");
-            theGroups["boundary4"].push_back("border4");
-    */
+        const PdmtMedWriter::SourceMetadata source =
+            PdmtMedWriter::readSourceMetadata(sourceMeshFile, sourceMeshName);
+        KN<long> cellLabels(CellsPoly -> N());
+        KN<long> boundaryLabels(EdgesPoly -> N());
+        for (long cell = 0; cell < CellsPoly -> N(); ++cell)
+          cellLabels[cell] = (*LabelsPoly)[cell];
+        for (long edge = 0; edge < EdgesPoly -> N(); ++edge)
+          boundaryLabels[edge] = (*LabelsPoly)[CellsPoly -> N() + edge];
+        PdmtMedWriter::addCellFamilies(
+            finalMeshWithLabel, 0, &cellLabels, CellsPoly -> N(), "cell",
+            theFamilies, theGroups, true, source);
+        PdmtMedWriter::addCellFamilies(
+            finalMeshWithLabel, -1, &boundaryLabels, EdgesPoly -> N(),
+            "boundary", theFamilies, theGroups, false, source);
 
         // write mesh information useful for setting boundary conditions //
 
@@ -187,18 +350,23 @@ void writePolyMed(std::string const * fineName, KNM < double > * nodesPoly, KN <
                   << "  List of families , tags , groups  \n\n"
                   << "Information on cells: \n"
                   << "  # polygons " << CellsPoly -> N() << "\n"
-                  << "  List of families , tags , groups  \n\n";
-        for (std::set < int > ::iterator it = poly2DUniqueLabels.begin(); it != poly2DUniqueLabels.end(); ++it) {
-          infoWrite << "    'cell_family_" + to_string( * it) + "'  has tag '" <<   * it + 1000 << "' belongs to group 'cell_group_" + to_string( * it) + "' " <<  endl;
+                  << "  List of families and tags:\n";
+        for (std::map<std::string, mcIdType>::const_iterator family =
+                 theFamilies.begin(); family != theFamilies.end(); ++family)
+          infoWrite << "    '" << family->first << "' has tag '"
+                    << family->second << "'\n";
+        infoWrite << "\n  List of groups and families:\n";
+        for (std::map<std::string, std::vector<std::string> >::const_iterator group =
+                 theGroups.begin(); group != theGroups.end(); ++group) {
+          infoWrite << "    '" << group->first << "':";
+          for (std::vector<std::string>::const_iterator family =
+                   group->second.begin(); family != group->second.end(); ++family)
+            infoWrite << " '" << *family << "'";
+          infoWrite << "\n";
         }
-
         infoWrite << "\n\n"
                   << "Information on boundary: \n"
-                  << "  # edges " << EdgesPoly -> N() << "\n"
-                  << "  List of families , tags , groups  \n\n";
-        for (std::set < int > ::iterator it = poly1DUniqueLabels.begin(); it != poly1DUniqueLabels.end(); ++it) {
-          infoWrite << "    'boundary_family_" + to_string( * it) + "'  has tag '" << * it << "' belongs to group 'boundary_group_" + to_string( * it) + "' " <<endl;
-        }
+                  << "  # edges " << EdgesPoly -> N() << "\n";
 
         infoWrite.close();
 
@@ -217,17 +385,6 @@ void writePolyMed(std::string const * fineName, KNM < double > * nodesPoly, KN <
 
 namespace PdmtMedWriter {
 
-inline mcIdType cellFamily(long label) {
-  // Keep lower-dimensional boundary labels unchanged, as the historical 2D
-  // writer does, while putting cell families in a disjoint range.
-  return static_cast<mcIdType>(label + 1000);
-}
-
-inline mcIdType boundaryFamily(long label) {
-  // MED family zero means "no family" and therefore cannot form a group.
-  return static_cast<mcIdType>(label == 0 ? 2000 : label);
-}
-
 inline void setCoordinates(MEDCouplingUMesh *mesh, KNM<double> *nodes,
                            int spaceDimension) {
   MCAuto<DataArrayDouble> coordinates = DataArrayDouble::New();
@@ -243,33 +400,6 @@ inline void setCoordinates(MEDCouplingUMesh *mesh, KNM<double> *nodes,
   mesh->setCoords(coordinates);
 }
 
-inline void addCellFamilies(MEDFileUMesh *fileMesh, int level,
-                            KN<long> *labels, long count,
-                            const std::string &kind,
-                            std::map<std::string, mcIdType> &families,
-                            std::map<std::string, std::vector<std::string> > &groups,
-                            bool topLevel) {
-  if (!labels || count == 0)
-    return;
-  MCAuto<DataArrayIdType> field = DataArrayIdType::New();
-  field->alloc(count, 1);
-  std::set<long> uniqueLabels;
-  for (long i = 0; i < count; ++i) {
-    const long label = (*labels)[i];
-    field->setIJ(i, 0, topLevel ? cellFamily(label) : boundaryFamily(label));
-    uniqueLabels.insert(label);
-  }
-  fileMesh->setFamilyFieldArr(level, field);
-  for (std::set<long>::const_iterator label = uniqueLabels.begin();
-       label != uniqueLabels.end(); ++label) {
-    const mcIdType familyId = topLevel ? cellFamily(*label) : boundaryFamily(*label);
-    const std::string familyName = kind + "_family_" + to_string(*label);
-    const std::string groupName = kind + "_group_" + to_string(*label);
-    families[familyName] = familyId;
-    groups[groupName].push_back(familyName);
-  }
-}
-
 } // namespace PdmtMedWriter
 
 // Write a polygonal surface embedded in 3D.  Boundary edges are reconstructed
@@ -277,7 +407,9 @@ inline void addCellFamilies(MEDFileUMesh *fileMesh, int level,
 inline void writePolySurfaceMed(std::string const *fileName,
                                 KNM<double> *nodes,
                                 KN<KN<long> > *polygons,
-                                KN<long> *labels) {
+                                KN<long> *labels,
+                                const std::string *sourceMeshFile,
+                                const std::string *sourceMeshName) {
   using namespace PdmtMedWriter;
   if (!nodes || !polygons || nodes->M() < 3)
     ExecError("PdmtPolyMeshWrite: invalid 3S polygon arrays for MED output");
@@ -344,7 +476,10 @@ inline void writePolySurfaceMed(std::string const *fileName,
 
   std::map<std::string, mcIdType> families;
   std::map<std::string, std::vector<std::string> > groups;
-  addCellFamilies(output, 0, labels, polygons->N(), "polygon", families, groups, true);
+  const SourceMetadata source =
+      readSourceMetadata(sourceMeshFile, sourceMeshName);
+  addCellFamilies(output, 0, labels, polygons->N(), "polygon", families,
+                  groups, true, source);
   if (!families.empty()) {
     output->setFamilyInfo(families);
     output->setGroupInfo(groups);
@@ -360,7 +495,9 @@ inline void writePolyMed3D(std::string const *fileName,
                            KN<KN<long> > *cells,
                            KN<KN<long> > *faces,
                            KN<long> *labels,
-                           KN<long> *faceLabels) {
+                           KN<long> *faceLabels,
+                           const std::string *sourceMeshFile,
+                           const std::string *sourceMeshName) {
   using namespace PdmtMedWriter;
   using namespace Pdmt3DWriter;
   if (!nodes || !cells || !faces || nodes->M() < 3)
@@ -426,13 +563,16 @@ inline void writePolyMed3D(std::string const *fileName,
 
   std::map<std::string, mcIdType> families;
   std::map<std::string, std::vector<std::string> > groups;
-  addCellFamilies(output, 0, labels, cells->N(), "cell", families, groups, true);
+  const SourceMetadata source =
+      readSourceMetadata(sourceMeshFile, sourceMeshName);
+  addCellFamilies(output, 0, labels, cells->N(), "cell", families, groups,
+                  true, source);
   if (faceLabels && !boundaryFaceIds.empty()) {
     KN<long> boundaryLabels(boundaryFaceIds.size());
     for (long face = 0; face < static_cast<long>(boundaryFaceIds.size()); ++face)
       boundaryLabels[face] = (*faceLabels)[boundaryFaceIds[face]];
     addCellFamilies(output, -1, &boundaryLabels, boundaryFaceIds.size(),
-                    "boundary", families, groups, false);
+                    "boundary", families, groups, false, source);
   }
   if (!families.empty()) {
     output->setFamilyInfo(families);
