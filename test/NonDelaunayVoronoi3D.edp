@@ -17,3 +17,15 @@ PdmtPolyMeshWrite("non_delaunay_circumcentric.vtu",
     labels=labels, faceLabels=faceLabels);
 
 cout << "PDMT 3D non-Delaunay geometric Voronoi test passed" << endl;
+
+// The first seed also owns a piece of the other tetrahedron, across the gap.
+Th = readmesh3("disconnected_tets.mesh");
+numberOfCells = PdmtBuildDual3D(Th,
+    nodes=nodes, faces=faces, cells=cells,
+    labels=labels, faceLabels=faceLabels,
+    mode="circumcentric_dual");
+if (numberOfCells != Th.nv || cells.n != Th.nv)
+  exit(1);
+PdmtPolyMeshWrite("disconnected_tets_circumcentric.vtu",
+    nodes=nodes, faces=faces, cells=cells,
+    labels=labels, faceLabels=faceLabels);

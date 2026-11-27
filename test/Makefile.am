@@ -6,7 +6,7 @@ clean-local:
 	@echo "*============================================================*"
 	@echo ""
 	rm  -f *~ *.log
-	rm  -f *.tmp *.vtk *.mesh *.vtu *.med
+	rm  -f *.tmp *.vtk *.vtu *.med
 
 
 maintainer-clean-local: clean-local
@@ -19,7 +19,7 @@ maintainer-clean-local: clean-local
 
 EXTRA_DIST = check_2d_dual_vtu.py check_3d_planarity.py check_3d_regularization.py \
 	check_3s_circumcentric.py check_3s_regularization.py open_surface.msh3d \
-	non_delaunay_pair.mesh3d obtuse_delaunay_pair.mesh3d \
+	non_delaunay_pair.mesh3d obtuse_delaunay_pair.mesh3d disconnected_tets.mesh \
 	NonDelaunayVoronoi3D.edp regular_pentagon.mesh \
 	regular_surface.msh3d regular_tetra.mesh3d
 
@@ -60,13 +60,14 @@ test-2d-modes: check_2d_dual_vtu.py
 
 test-3d: UnitTest3D.edp NonDelaunayVoronoi3D.edp single_tetra.mesh3d \
 	offcenter_cube.mesh3d regular_tetra.mesh3d non_delaunay_pair.mesh3d \
-	obtuse_delaunay_pair.mesh3d
+	obtuse_delaunay_pair.mesh3d disconnected_tets.mesh
 	$(MED_TEST_ENV) $(FFMPI) -np 1 UnitTest3D.edp -v 0 -nw > UnitTest3D.log
 	python3 ./check_3d_regularization.py offcenter_unsmoothed_0000.vtu offcenter_regularized_0000.vtu
 	python3 ./check_3d_planarity.py regular_tetra_circumcentric_0000.vtu --check-simple --check-closed
 	python3 ./check_3d_planarity.py obtuse_pair_circumcentric_0000.vtu --check-simple --check-closed --expected-volume 0.005480587530900128 --volume-tolerance 1e-6
 	$(MED_TEST_ENV) $(FFMPI) -np 1 NonDelaunayVoronoi3D.edp -v 0 -nw > NonDelaunayVoronoi3D.log
 	python3 ./check_3d_planarity.py non_delaunay_circumcentric_0000.vtu --check-simple --check-closed --expected-volume 0.1833333333333333 --volume-tolerance 1e-8
+	python3 ./check_3d_planarity.py disconnected_tets_circumcentric_0000.vtu --check-simple --check-closed --expected-volume 0.66675
 
 test-conserve-edge: UnitTestConserveEdge.edp physical_edge.msh3d
 	$(MED_TEST_ENV) $(FFMPI) -np 1 UnitTestConserveEdge.edp -v 0 -nw > UnitTestConserveEdge.log
