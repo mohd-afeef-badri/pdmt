@@ -462,6 +462,105 @@ public:
   }
 };
 
+
+// BB structire
+// 1. Corner points: minimum and maximum
+// 2. Include a point: update the bounding box to include the point
+// 3. Overlaps: check if two bounding boxes overlap with a given tolerance
+struct Bounds {
+  Point minimum, maximum;
+
+  void include(const Point &point) {
+    minimum = {std::min(minimum.x, point.x), std::min(minimum.y, point.y),
+               std::min(minimum.z, point.z)};
+    maximum = {std::max(maximum.x, point.x), std::max(maximum.y, point.y),
+               std::max(maximum.z, point.z)};
+  }
+
+  bool overlaps(const Bounds &other, double tolerance) const {
+    for (int axis = 0; axis < 3; ++axis)
+      if (pointCoordinate(minimum, axis) - pointCoordinate(other.maximum, axis) > tolerance ||
+          pointCoordinate(other.minimum, axis) - pointCoordinate(maximum, axis) > tolerance)
+        return false;
+    return true;
+  }
+};
+
+// BB tree serches index of tetra  whose BB overlap with a given query BB
+//The tree is built once for the mesh
+class TetBoundsTree {
+
+  // grouped tetrahedra bounding boxes
+  struct TetBoundsTreeNode {
+    Bounds bounds;
+    long begin, end, left, right;
+  };
+
+  const std::vector<Bounds> &tetBounds_;
+  std::vector<long> order_;
+  std::vector<TetBoundsTreeNode> nodes_;
+
+  long build(long begin, long end) {
+    Bounds bounds = tetBounds_[order_[begin]];
+    for (long item = begin + 1; item < end; ++item) {
+      bounds.include(tetBounds_[order_[item]].minimum);
+      bounds.include(tetBounds_[order_[item]].maximum);
+    }
+    const long index = static_cast<long>(nodes_.size());
+    nodes_.push_back(TetBoundsTreeNode{bounds, begin, end, -1, -1});
+    if (end - begin <= 8)
+      return index;
+
+    const Point extent = minus(bounds.maximum, bounds.minimum);
+    int axis = extent.y > extent.x ? 1 : 0;
+    if (extent.z > pointCoordinate(extent, axis))
+      axis = 2;
+    const long middle = begin + (end - begin) / 2;
+    std::nth_element(order_.begin() + begin, order_.begin() + middle,
+                     order_.begin() + end, [&](long first, long second) {
+      const Bounds &a = tetBounds_[first];
+      const Bounds &b = tetBounds_[second];
+      return pointCoordinate(a.minimum, axis) + pointCoordinate(a.maximum, axis) <
+             pointCoordinate(b.minimum, axis) + pointCoordinate(b.maximum, axis);
+    });
+    const long left = build(begin, middle);
+    const long right = build(middle, end);
+    nodes_[index].left = left;
+    nodes_[index].right = right;
+    return index;
+  }
+
+  void collect(long index, const Bounds &query, double tolerance,
+               std::vector<long> &candidates) const {
+    const TetBoundsTreeNode &node = nodes_[index];
+    if (!node.bounds.overlaps(query, tolerance))
+      return;
+    if (node.left >= 0) {
+      collect(node.left, query, tolerance, candidates);
+      collect(node.right, query, tolerance, candidates);
+      return;
+    }
+    for (long item = node.begin; item < node.end; ++item) {
+      const long tet = order_[item];
+      if (tetBounds_[tet].overlaps(query, tolerance))
+        candidates.push_back(tet);
+    }
+  }
+
+public:
+  explicit TetBoundsTree(const std::vector<Bounds> &tetBounds)
+      : tetBounds_(tetBounds), order_(tetBounds.size()) {
+    for (long tet = 0; tet < static_cast<long>(order_.size()); ++tet)
+      order_[tet] = tet;
+    build(0, static_cast<long>(order_.size()));
+  }
+
+  void collect(const Bounds &query, double tolerance,
+               std::vector<long> &candidates) const {
+    collect(0, query, tolerance, candidates);
+  }
+};
+
 inline double polygonLengthScale(const std::vector<long> &polygon,
                                  const std::vector<Point> &points) {
   if (polygon.empty())
@@ -792,9 +891,13 @@ inline void clipRestrictedPolyhedron(RestrictedPolyhedron &polyhedron,
                                      const FaceKey *primalFace = 0) {
   std::vector<double> signedDistance(polyhedron.points.size());
   for (long vertex = 0;
-       vertex < static_cast<long>(polyhedron.points.size()); ++vertex)
-    signedDistance[vertex] =
-        dot(polyhedron.points[vertex], normal) - offset;
+       vertex < static_cast<long>(polyhedron.points.size()); ++vertex) {
+    const double distance = dot(polyhedron.points[vertex], normal) - offset;
+    // Classify and intersect against the same plane. Treating a near-plane
+    // endpoint as inside without snapping its distance can extrapolate an
+    // intersection beyond that endpoint and fold the clipped face.
+    signedDistance[vertex] = std::abs(distance) <= tolerance ? 0.0 : distance;
+  }
 
   std::map<EdgeKey, long> intersectionVertex;
   std::vector<long> capVertices;
@@ -808,8 +911,8 @@ inline void clipRestrictedPolyhedron(RestrictedPolyhedron &polyhedron,
     for (long edge = 0; edge < count; ++edge) {
       const long a = oldFace->vertices[edge];
       const long b = oldFace->vertices[(edge + 1) % count];
-      const bool aInside = signedDistance[a] <= tolerance;
-      const bool bInside = signedDistance[b] <= tolerance;
+      const bool aInside = signedDistance[a] <= 0.0; // use machine tolerance to avoid extrapolation
+      const bool bInside = signedDistance[b] <= 0.0; // use machine tolerance to avoid extrapolation
       if (aInside)
         clipped.vertices.push_back(a);
       if (aInside == bInside)
@@ -819,12 +922,16 @@ inline void clipRestrictedPolyhedron(RestrictedPolyhedron &polyhedron,
       std::map<EdgeKey, long>::const_iterator found =
           intersectionVertex.find(key);
       long intersection;
-      if (found != intersectionVertex.end()) {
+      // Zero distance check for clipped tetras
+      // If one of the endpoints is exactly on the plane, use it as the intersection
+      if (signedDistance[a] == 0.0) {
+        intersection = a;
+      } else if (signedDistance[b] == 0.0) {
+        intersection = b;
+      } else if (found != intersectionVertex.end()) {
         intersection = found->second;
       } else {
         const double denominator = signedDistance[a] - signedDistance[b];
-        if (denominator == 0.0)
-          continue;
         const double parameter = signedDistance[a] / denominator;
         const Point point = add(
             polyhedron.points[a],
@@ -1425,7 +1532,6 @@ AnyType pdmtBuildDual3D_Op::operator()(Stack stack) const {
 
   std::set<EdgeKey> primalEdges;
   std::set<FaceKey> primalFaces;
-  std::map<FaceKey, std::vector<std::pair<long, long> > > primalFaceUses;
   std::vector<std::vector<long> > incidentTets(Th.nv);
   std::vector<std::set<long> > primalNeighbours(Th.nv);
   std::vector<long> cellRegion(Th.nv, 0);
@@ -1458,19 +1564,6 @@ AnyType pdmtBuildDual3D_Op::operator()(Stack stack) const {
           vertex[tetFaces[i][0]], vertex[tetFaces[i][1]],
           vertex[tetFaces[i][2]]);
       primalFaces.insert(face);
-      primalFaceUses[face].push_back(std::make_pair(t, vertex[i]));
-    }
-  }
-
-  std::vector<std::vector<long> > adjacentTets(Th.nt);
-  for (std::map<FaceKey, std::vector<std::pair<long, long> > >::const_iterator
-           face = primalFaceUses.begin();
-       face != primalFaceUses.end(); ++face) {
-    if (face->second.size() == 2) {
-      const long first = face->second[0].first;
-      const long second = face->second[1].first;
-      adjacentTets[first].push_back(second);
-      adjacentTets[second].push_back(first);
     }
   }
 
@@ -1601,13 +1694,17 @@ AnyType pdmtBuildDual3D_Op::operator()(Stack stack) const {
     const double constraintTolerance =
         domainScale * domainScale * 1.e-11;
     const PointKdTree siteTree(pointList);
-
-    // A Voronoi cell of an obtuse Delaunay mesh is not necessarily contained
-    // in the tetrahedral star of its seed.  Construct the complete convex cell
-    // first, then walk through every connected tetrahedron it intersects.
-    // This avoids leaving an interior primal face as a triangular hole when a
-    // circumcentre lies outside its tetrahedron.
-    std::vector<long> visitedTet(Th.nt, -1);
+    std::vector<Bounds> tetBounds;
+    tetBounds.reserve(Th.nt);
+    for (long tet = 0; tet < Th.nt; ++tet) {
+      const Point &first = pointList[Th(Th[tet][0])];
+      Bounds bounds = {first, first};
+      for (int local = 1; local < 4; ++local)
+        bounds.include(pointList[Th(Th[tet][local])]);
+      tetBounds.push_back(bounds);
+    }
+    const TetBoundsTree tetTree(tetBounds);
+    std::vector<long> candidates;
     for (long seed = 0; seed < Th.nv; ++seed) {
       RestrictedPolyhedron globalCell =
           makeRestrictedBoundingBox(boxMinimum, boxMaximum);
@@ -1674,14 +1771,16 @@ AnyType pdmtBuildDual3D_Op::operator()(Stack stack) const {
       if (!restrictedPolyhedronHasVolume(globalCell, distanceTolerance))
         ExecError("PdmtBuildDual3D: a primal vertex has an empty Voronoi cell");
 
-      std::vector<long> work = incidentTets[seed];
-      while (!work.empty()) {
-        const long tet = work.back();
-        work.pop_back();
-        if (visitedTet[tet] == seed)
-          continue;
-        visitedTet[tet] = seed;
-
+      // Intersect every candidate tetrahedron. In a nonconvex domain, the
+      // restricted cell can have pieces disconnected from the seed's star.
+      Bounds cellBounds = {pointList[seed], pointList[seed]};
+      for (const RestrictedFace &face : globalCell.faces)
+        for (long vertex : face.vertices)
+          cellBounds.include(globalCell.points[vertex]);
+      candidates.clear();
+      tetTree.collect(cellBounds, distanceTolerance, candidates);
+      std::sort(candidates.begin(), candidates.end());
+      for (long tet : candidates) {
         long vertex[4];
         for (int local = 0; local < 4; ++local)
           vertex[local] = Th(Th[tet][local]);
@@ -1707,12 +1806,6 @@ AnyType pdmtBuildDual3D_Op::operator()(Stack stack) const {
         }
         if (!restrictedPolyhedronHasVolume(clipped, distanceTolerance))
           continue;
-
-        for (std::vector<long>::const_iterator adjacent =
-                 adjacentTets[tet].begin();
-             adjacent != adjacentTets[tet].end(); ++adjacent)
-          if (visitedTet[*adjacent] != seed)
-            work.push_back(*adjacent);
 
         for (std::vector<RestrictedFace>::const_iterator face =
                  clipped.faces.begin();
